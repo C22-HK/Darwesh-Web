@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<!-- CLIENT-04 (CLIENT_SIDE_SECURITY_REVIEW.md): meta-delivered CSP. GitHub Pages
+can't set HTTP headers, so this is the only delivery mechanism available.
+unsafe-inline on script and style sources is a deliberate, documented
+tradeoff: this codebase has no build step and dozens of inline script/style
+blocks per page; blocking them needs a nonce (impossible with no per-request
+server logic) or a SHA-256 hash per block kept in lockstep with every future
+edit across 21 pages, a real ongoing cost not taken on here. What this DOES
+still provide: an injected payload (e.g. CLIENT-01/02, both since fixed) can
+no longer load a script from an attacker-controlled domain or exfiltrate data
+via fetch or img to one. Note: frame-ancestors, report-uri, and sandbox are
+silently ignored when CSP is delivered via a meta tag (a browser spec rule,
+not an oversight here); this can never provide clickjacking protection or
+violation reporting. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://unpkg.com https://browser.sentry-cdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; img-src 'self' data: blob: https://firebasestorage.googleapis.com https://lh3.googleusercontent.com https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com; media-src 'self' blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebasestorage.googleapis.com https://darwesh-backend-353477435585.me-central1.run.app https://overpass-api.de https://nominatim.openstreetmap.org https://www.google.com https://*.ingest.sentry.io; frame-src https://www.google.com; object-src 'none'; base-uri 'self'; upgrade-insecure-requests"/>
+<script>(function(){var l=localStorage.getItem('darwesh_lang');document.documentElement.lang=l||'en';document.documentElement.dir=(l==='ku'||l==='ar')?'rtl':'ltr';})();</script>
+<script src="./js/icon-fallback.js"></script>
+
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<!-- Favicon / app icons -- generated from the official Darwesh Group D-mark
+     (images/brand/darwesh-mark.png); geometry unmodified. Root-relative
+     paths so they resolve from every route regardless of the current page. -->
+<link rel="icon" href="/images/brand/favicon.ico" sizes="any"/>
+<link rel="icon" type="image/png" sizes="16x16" href="/images/brand/favicon-16.png"/>
+<link rel="icon" type="image/png" sizes="32x32" href="/images/brand/favicon-32.png"/>
+<link rel="icon" type="image/png" sizes="48x48" href="/images/brand/favicon-48.png"/>
+<link rel="apple-touch-icon" sizes="180x180" href="/images/brand/apple-touch-icon.png"/>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="canonical" href="https://www.darweshgroup.com/login.html"/>
+<title>Darwesh Group - Log In</title>
+<meta name="description" content="Log in to your Darwesh Group account."/>
+<link href="css/tailwind.css" rel="stylesheet"/>
+<link href="css/profile-tokens.css" rel="stylesheet"/>
+<link href="css/cinematic.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;family=IBM+Plex+Sans:wght@600&amp;family=Inter:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+  body { min-height: 100dvh; }
+</style>
+</head>
+<body class="cine-scope bg-background text-on-surface font-body-md antialiased">
+
+<div class="auth-split">
+
+  <div class="auth-visual" aria-hidden="true">
+    <div class="auth-visual-glow"></div>
+    <div class="auth-visual-inner">
+      <div class="auth-visual-wordmark">
+        <span class="material-symbols-outlined" style="font-size:18px;">apartment</span>
+        Darwesh Group
+      </div>
+      <p class="auth-visual-title" data-i18n="auth.visual.loginHeadline">Welcome back</p>
+      <p class="auth-visual-subtitle" data-i18n="auth.visual.loginSubtitle">Your favorites, submissions, and saved searches are exactly where you left them.</p>
+
+      <div class="auth-visual-stage">
+        <div class="auth-visual-card c1"><span class="material-symbols-outlined auth-visual-icon">home_work</span></div>
+        <div class="auth-visual-card c2"><span class="material-symbols-outlined auth-visual-icon">favorite</span></div>
+        <div class="auth-visual-card c3"><span class="material-symbols-outlined auth-visual-icon">notifications_active</span></div>
+      </div>
+
+      <div class="auth-trust-row">
+        <span class="auth-trust-badge"><span class="material-symbols-outlined">verified_user</span><span data-i18n="auth.visual.trustSecure">Secure</span></span>
+        <span class="auth-trust-badge"><span class="material-symbols-outlined">fact_check</span><span data-i18n="auth.visual.trustVerified">Verified Listings</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="auth-form-side">
+    <div class="auth-form-side-inner">
+
+      <header class="flex items-center mb-6">
+        <a href="index.html" class="font-headline-md text-headline-md font-bold text-primary lg:hidden">Darwesh Group</a>
+        <div class="lang-select ms-auto">
+          <button aria-label="Language" class="lang-toggle-btn" type="button">
+            <span class="lang-current" data-flag-for="en"><img class="lang-flag" src="images/flags/usa.svg" alt="" width="20" height="14" decoding="async">EN</span>
+            <span class="lang-current" data-flag-for="ku"><img class="lang-flag" src="images/flags/kurdistan.svg" alt="" width="20" height="14" decoding="async">KU</span>
+            <span class="lang-current" data-flag-for="ar"><img class="lang-flag" src="images/flags/iraq.svg" alt="" width="20" height="14" decoding="async">AR</span>
+            <span class="lang-current" data-flag-for="tr"><img class="lang-flag" src="images/flags/turkey.svg" alt="" width="20" height="14" decoding="async">TR</span>
+          </button>
+          <div class="lang-menu hidden absolute end-0 top-full mt-2 z-50">
+            <button class="lang-option" data-lsel data-lang="ku" onclick="setLanguage('ku')" type="button">
+              <img class="lang-flag" src="images/flags/kurdistan.svg" alt="" width="20" height="14" decoding="async">
+              <span>کوردی</span>
+              <span class="lang-option-check material-symbols-outlined" aria-hidden="true">check</span>
+            </button>
+            <button class="lang-option" data-lsel data-lang="ar" onclick="setLanguage('ar')" type="button">
+              <img class="lang-flag" src="images/flags/iraq.svg" alt="" width="20" height="14" decoding="async">
+              <span>العربية</span>
+              <span class="lang-option-check material-symbols-outlined" aria-hidden="true">check</span>
+            </button>
+            <button class="lang-option" data-lsel data-lang="tr" onclick="setLanguage('tr')" type="button">
+              <img class="lang-flag" src="images/flags/turkey.svg" alt="" width="20" height="14" decoding="async">
+              <span>Türkçe</span>
+              <span class="lang-option-check material-symbols-outlined" aria-hidden="true">check</span>
+            </button>
+            <button class="lang-option" data-lsel data-lang="en" onclick="setLanguage('en')" type="button">
+              <img class="lang-flag" src="images/flags/usa.svg" alt="" width="20" height="14" decoding="async">
+              <span>English</span>
+              <span class="lang-option-check material-symbols-outlined" aria-hidden="true">check</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div class="mb-6">
+        <h1 class="font-headline-md text-headline-md text-primary mb-1" data-i18n="auth.logInTitle">Log in</h1>
+        <p class="font-body-md text-[13px] text-on-surface-variant" data-i18n="auth.logInSubtitle">Access your favorites, submissions, and saved searches.</p>
+      </div>
+
+      <div class="auth-card">
+        <form id="loginForm" class="space-y-4">
+          <div>
+            <label class="auth-label" for="fEmail" data-i18n="auth.email">Email</label>
+            <div class="auth-input-wrap">
+              <span class="material-symbols-outlined auth-input-icon">mail</span>
+              <input id="fEmail" class="auth-input" required type="email" autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false"/>
+            </div>
+          </div>
+          <div>
+            <label class="auth-label" for="fPassword" data-i18n="auth.password">Password</label>
+            <div class="auth-input-wrap">
+              <span class="material-symbols-outlined auth-input-icon">lock</span>
+              <input id="fPassword" class="auth-input has-toggle" required type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false"/>
+              <button type="button" class="auth-toggle-visibility" id="toggleFPassword" aria-label="Show password" data-i18n-aria="auth.showPassword" title="Show password">
+                <span class="material-symbols-outlined" id="toggleFPasswordIcon" style="font-size:19px;">visibility</span>
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center justify-between -mt-1">
+            <label class="flex items-center gap-2 font-body-md text-[13px] text-on-surface cursor-pointer select-none">
+              <input id="rememberMe" type="checkbox" class="rounded" checked/>
+              <span data-i18n="auth.rememberMe">Remember me</span>
+            </label>
+            <a href="reset-password.html" class="font-label-caps text-label-caps text-secondary hover:text-primary transition-colors" data-i18n="auth.forgotPassword">Forgot password?</a>
+          </div>
+          <p id="authError" class="hidden text-error text-[13px]" role="alert"></p>
+          <button id="submitBtn" class="ps-btn auth-btn-primary" type="submit">
+            <span class="auth-spinner hidden" id="submitSpinner"></span>
+            <span id="submitBtnLabel" data-i18n="auth.logInBtn">Log In</span>
+          </button>
+        </form>
+      </div>
+
+      <p class="font-body-md text-[13px] text-on-surface-variant text-center mt-6">
+        <span data-i18n="auth.noAccount">Don't have an account?</span> <a href="signup.html" class="text-secondary font-medium hover:underline" data-i18n="auth.signUpLink">Sign up</a>
+      </p>
+      <a href="index.html" class="block text-center mt-4 font-label-caps text-label-caps text-on-surface-variant hover:text-primary" data-i18n="nav.backToSite">Back to site</a>
+    </div>
+  </div>
+</div>
+
+<script src="./js/i18n.js"></script><script type="module">
+  import { auth, db, getDoc } from './js/firebase-init.js';
+  import { signInWithEmailAndPassword, onAuthStateChanged, setPersistence, browserLocalPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+  import { doc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+  // Launch-readiness fix B3: the post-login destination is resolved by the
+  // same shared module the header chip and account.html use, so an office
+  // owner, a developer, a professional or an admin lands on their own page
+  // instead of the generic customer page.
+  import { resolveProfileDestination } from './js/profile-destination.js';
+
+  // Already logged in? Skip straight to the right dashboard instead of
+  // showing the login form again.
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) return;
+    let profile = null;
+    try {
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      profile = snap.exists() ? snap.data() : null;
+    } catch (e) { profile = null; }
+    window.location.href = resolveProfileDestination(profile);
+  });
+
+  const form = document.getElementById('loginForm');
+  const errEl = document.getElementById('authError');
+  const submitBtn = document.getElementById('submitBtn');
+  const submitSpinner = document.getElementById('submitSpinner');
+  const submitBtnLabel = document.getElementById('submitBtnLabel');
+
+  function showError(msg) {
+    errEl.textContent = msg;
+    errEl.classList.remove('hidden');
+  }
+
+  function setSubmitLoading(loading, loadingText, idleText) {
+    submitBtn.disabled = loading;
+    submitSpinner.classList.toggle('hidden', !loading);
+    submitBtnLabel.textContent = loading ? loadingText : idleText;
+  }
+
+  // Show/Hide password -- toggles the input type and swaps the eye icon;
+  // purely a visibility aid, doesn't change what's submitted.
+  function wirePasswordToggle(inputId, btnId, iconId) {
+    const input = document.getElementById(inputId);
+    const btn = document.getElementById(btnId);
+    const icon = document.getElementById(iconId);
+    btn.addEventListener('click', () => {
+      const showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      icon.textContent = showing ? 'visibility' : 'visibility_off';
+      btn.setAttribute('aria-label', showing ? tr('auth.showPassword', 'Show password') : tr('auth.hidePassword', 'Hide password'));
+    });
+  }
+  wirePasswordToggle('fPassword', 'toggleFPassword', 'toggleFPasswordIcon');
+
+  function tr(key, fallback) { return (window.t && window.t(key)) || fallback; }
+
+  function friendlyLoginError(code) {
+    switch (code) {
+      case 'auth/invalid-credential':
+      case 'auth/wrong-password':
+      case 'auth/user-not-found':
+        return tr('auth.errIncorrect', 'Incorrect email or password.');
+      case 'auth/invalid-email': return tr('auth.errBadEmail', "That email address doesn't look right.");
+      case 'auth/too-many-requests': return tr('auth.errTooMany', 'Too many attempts — please wait a moment and try again.');
+      default: return tr('auth.errLoginGeneric', 'Something went wrong logging in. Please try again.');
+    }
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errEl.classList.add('hidden');
+    setSubmitLoading(true, tr('auth.loggingIn', 'Logging in…'), tr('auth.logInBtn', 'Log In'));
+
+    const email = document.getElementById('fEmail').value.trim().toLowerCase();
+    // Trimmed -- a trailing/leading space or newline from autofill or a
+    // mobile keyboard quirk is never something a real user intends as
+    // part of their password, and Firebase does NOT trim or normalize
+    // whitespace itself. Left untrimmed, "the same" password captured
+    // slightly differently by two devices' autofill silently stops
+    // matching -- this is applied identically here, on signup.html, and
+    // on reset-password.html so whatever a user sets their password to
+    // always compares the same way everywhere.
+    const password = document.getElementById('fPassword').value.trim();
+    const rememberMe = document.getElementById('rememberMe').checked;
+
+    // "Remember me" controls whether the signed-in session survives
+    // closing the browser (LOCAL) or is cleared with it (SESSION).
+    // Deliberately NOT in the same try/catch as the actual sign-in
+    // below: Safari Private Browsing and several in-app browsers
+    // (Instagram/Facebook/WhatsApp link previews) block IndexedDB,
+    // which this call depends on -- when that happens the correct
+    // email+password would otherwise never even get submitted, and the
+    // visitor sees a generic "something went wrong" that looks
+    // identical to a real credentials error. A failure here is now
+    // logged for diagnosis and simply skipped; the browser's default
+    // persistence still applies, so sign-in can proceed regardless.
+    try {
+      await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+    } catch (persistErr) {
+      console.error('[login] setPersistence failed, continuing with sign-in anyway', persistErr.code || persistErr.name, persistErr.message);
+    }
+
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      let profile = null;
+      try {
+        const snap = await getDoc(doc(db, 'users', cred.user.uid));
+        profile = snap.exists() ? snap.data() : null;
+      } catch (profileErr) {
+        // Sign-in itself succeeded; a transient profile read failure must
+        // not strand the visitor on the login form -- fall back to the
+        // generic account page, which re-reads the profile itself.
+        console.error('[login] profile read failed after sign-in', profileErr.code || profileErr.name);
+      }
+      window.location.href = resolveProfileDestination(profile);
+    } catch (err) {
+      // The real error is always captured here (and, once Sentry is
+      // configured via js/error-monitor.js, reported) -- only the safe,
+      // generic friendlyLoginError() text ever reaches the visitor.
+      console.error('[login] sign-in failed', err.code || err.name, err.message);
+      showError(friendlyLoginError(err.code));
+      setSubmitLoading(false, '', tr('auth.logInBtn', 'Log In'));
+    }
+  });
+</script>
+<script type="module" src="./js/error-monitor.js"></script>
+</body></html>

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<!-- CLIENT-04 (CLIENT_SIDE_SECURITY_REVIEW.md): meta-delivered CSP. GitHub Pages
+can't set HTTP headers, so this is the only delivery mechanism available.
+unsafe-inline on script and style sources is a deliberate, documented
+tradeoff: this codebase has no build step and dozens of inline script/style
+blocks per page; blocking them needs a nonce (impossible with no per-request
+server logic) or a SHA-256 hash per block kept in lockstep with every future
+edit across 21 pages, a real ongoing cost not taken on here. What this DOES
+still provide: an injected payload (e.g. CLIENT-01/02, both since fixed) can
+no longer load a script from an attacker-controlled domain or exfiltrate data
+via fetch or img to one. Note: frame-ancestors, report-uri, and sandbox are
+silently ignored when CSP is delivered via a meta tag (a browser spec rule,
+not an oversight here); this can never provide clickjacking protection or
+violation reporting. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://unpkg.com https://browser.sentry-cdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; img-src 'self' data: blob: https://firebasestorage.googleapis.com https://lh3.googleusercontent.com https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com; media-src 'self' blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebasestorage.googleapis.com https://darwesh-backend-353477435585.me-central1.run.app https://overpass-api.de https://nominatim.openstreetmap.org https://www.google.com https://*.ingest.sentry.io; frame-src https://www.google.com; object-src 'none'; base-uri 'self'; upgrade-insecure-requests"/>
+<script>(function(){var l=localStorage.getItem('darwesh_lang');document.documentElement.lang=l||'en';document.documentElement.dir=(l==='ku'||l==='ar')?'rtl':'ltr';})();</script>
+<script src="./js/icon-fallback.js"></script>
+
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<!-- Favicon / app icons -- generated from the official Darwesh Group D-mark
+     (images/brand/darwesh-mark.png); geometry unmodified. Root-relative
+     paths so they resolve from every route regardless of the current page. -->
+<link rel="icon" href="/images/brand/favicon.ico" sizes="any"/>
+<link rel="icon" type="image/png" sizes="16x16" href="/images/brand/favicon-16.png"/>
+<link rel="icon" type="image/png" sizes="32x32" href="/images/brand/favicon-32.png"/>
+<link rel="icon" type="image/png" sizes="48x48" href="/images/brand/favicon-48.png"/>
+<link rel="apple-touch-icon" sizes="180x180" href="/images/brand/apple-touch-icon.png"/>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="canonical" href="https://www.darweshgroup.com/promo.html"/>
+<title>Darwesh Group - Exclusive Offer</title>
+<meta name="description" content="Darwesh Group promotions and agent check-in."/>
+<!-- Not a public landing page. This is reached by scanning an agent's QR
+     code in person, and behind the check-in gate it reveals a live
+     discount code and the staff roster. Indexing it would publish both.
+     Kept out of sitemap.xml for the same reason. -->
+<meta name="robots" content="noindex, nofollow"/>
+<link href="css/tailwind.css" rel="stylesheet"/>
+<link href="css/profile-tokens.css" rel="stylesheet"/>
+<link href="css/cinematic.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;family=IBM+Plex+Sans:wght@600&amp;family=Inter:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    body { min-height: max(884px, 100dvh); }
+    .code-box { border: 2px dashed #8E7448; }
+  </style>
+  </head>
+<body class="cine-scope bg-background text-on-surface font-body-md antialiased overflow-x-hidden pt-[76px] pb-24 md:pb-16">
+<!-- TopAppBar -->
+<div id="siteHeader" data-active=""></div>
+<script src="./js/site-header.js"></script>
+<div id="siteMobileNav" data-active=""></div>
+<script src="./js/site-mobile-nav.js"></script>
+
+<main class="w-full max-w-2xl mx-auto px-margin-mobile md:px-margin-desktop">
+<section class="pt-stack-lg pb-stack-lg text-center flex flex-col items-center">
+<div class="inline-flex items-center gap-2 bg-secondary-container/40 border border-secondary/40 text-on-secondary-container px-4 py-2 rounded-full mb-stack-md">
+<span class="material-symbols-outlined text-[18px]">redeem</span>
+<span class="font-label-caps text-label-caps" data-i18n="index.exclusiveOffer">Exclusive Offer</span>
+</div>
+<h1 class="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-primary mb-2" data-i18n="promo.unlocked">You've Unlocked 10% Off</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-md mb-stack-lg" data-i18n="promo.subtitle">Verified in person by a Darwesh Group agent, worth 10% off brokerage fees on your next Buy or Sell.</p>
+
+<!-- Agent Check-In Gate -->
+<div class="bg-surface-container-lowest rounded-2xl p-stack-lg w-full mb-stack-md border border-outline-variant text-left" id="agentGate">
+<div class="flex items-center gap-2 mb-stack-sm">
+<span class="material-symbols-outlined text-primary">badge</span>
+<h2 class="font-headline-md text-headline-md text-primary" data-i18n="promo.agentCheckIn">Agent Check-In</h2>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-stack-md" data-i18n="promo.agentCheckInDesc">To keep every lead accounted for, the agent assisting this customer confirms their identity before the code is revealed. This creates a timestamped record on this device and can notify the office.</p>
+<label class="font-label-caps text-label-caps text-on-surface-variant block mb-2" data-i18n="promo.agentNameId">Agent Name &amp; ID</label>
+<select class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 font-body-md text-body-md text-on-surface mb-stack-md" id="agentSelect">
+<option value="" data-i18n="promo.selectYourName">Select your name...</option>
+<option data-id="DG-101" value="Ahmed Hassan">Ahmed Hassan — DG-101</option>
+<option data-id="DG-102" value="Sara Zana">Sara Zana — DG-102</option>
+<option data-id="DG-103" value="Dr. Kawa Amin">Dr. Kawa Amin — DG-103</option>
+<option data-id="DG-104" value="Eng. Tara Jaff">Eng. Tara Jaff — DG-104</option>
+</select>
+<button class="w-full bg-primary text-on-primary py-3 rounded-lg font-label-caps text-label-caps hover:bg-primary-container transition-colors flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed" disabled="" id="verifyAgentBtn">
+<span class="material-symbols-outlined text-[18px]">verified</span> <span data-i18n="promo.verifyReveal">Verify &amp; Reveal Discount</span>
+</button>
+<p class="font-body-md text-[11px] text-on-surface-variant text-center mt-2" data-i18n="promo.placeholderNote">Placeholder roster for testing — swap in your real staff list before going live.</p>
+</div>
+
+<!-- Discount Reveal (hidden until agent checks in) -->
+<div class="hidden w-full" id="discountReveal">
+<!-- Verified By Badge -->
+<div class="bg-tertiary-container/20 border border-tertiary-container rounded-xl px-4 py-3 mb-stack-md flex items-center gap-3 text-left">
+<span class="material-symbols-outlined text-on-tertiary-container">verified_user</span>
+<div>
+<p class="font-body-md text-body-md text-on-surface" id="verifiedByLine" data-i18n="promo.verifiedByDash">Verified by —</p>
+<p class="font-data-mono text-data-mono text-on-surface-variant text-xs" id="verifiedAtLine"></p>
+</div>
+</div>
+
+<!-- Discount Code Box -->
+<div class="code-box bg-surface-container-lowest rounded-2xl px-stack-lg py-stack-md w-full mb-stack-md">
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-2" data-i18n="promo.yourCode">Your Code</p>
+<div class="flex items-center justify-center gap-4">
+<span id="couponCode" class="font-headline-md text-[32px] md:text-[40px] font-bold text-primary tracking-widest">DARWESH10</span>
+</div>
+<button id="copyBtn" class="mt-stack-md inline-flex items-center gap-2 bg-primary text-on-primary px-6 py-2.5 rounded-full font-label-caps text-label-caps hover:bg-primary-container transition-colors">
+<span class="material-symbols-outlined text-[18px]" id="copyIcon">content_copy</span>
+<span id="copyLabel" data-i18n="promo.copyCode">Copy Code</span>
+</button>
+</div>
+
+<!-- Notify Office -->
+<button class="w-full mb-stack-lg inline-flex items-center justify-center gap-2 border border-secondary text-secondary px-6 py-3 rounded-full font-label-caps text-label-caps hover:bg-secondary-container/30 transition-all" id="notifyOfficeBtn" type="button">
+<span class="material-symbols-outlined text-[18px]">forward_to_inbox</span> <span data-i18n="promo.notifyOffice">Notify Office via WhatsApp</span>
+</button>
+
+<!-- Terms -->
+<div class="bg-surface-container-low rounded-xl p-stack-md w-full text-left mb-stack-lg">
+<h2 class="font-label-caps text-label-caps text-on-surface-variant mb-3" data-i18n="promo.offerTerms">Offer Terms</h2>
+<ul class="space-y-2">
+<li class="flex items-start gap-2 font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-secondary text-[18px] mt-0.5">check_circle</span><span data-i18n="promo.term1">10% off Darwesh Group brokerage fees on Buy or Sell transactions</span></li>
+<li class="flex items-start gap-2 font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-secondary text-[18px] mt-0.5">check_circle</span><span data-i18n="promo.term2">One use per client, valid across Erbil, Sulaymaniyah, and Duhok listings</span></li>
+<li class="flex items-start gap-2 font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-secondary text-[18px] mt-0.5">check_circle</span><span data-i18n="promo.term3">Present this code before signing to redeem</span></li>
+<li class="flex items-start gap-2 font-body-md text-body-md text-on-surface"><span class="material-symbols-outlined text-secondary text-[18px] mt-0.5">check_circle</span><span data-i18n="promo.term4">Cannot be combined with other promotions</span></li>
+</ul>
+</div>
+
+<!-- CTAs -->
+<div class="flex flex-col sm:flex-row gap-3 w-full">
+<a class="flex-1 flex items-center justify-center gap-2 bg-secondary text-on-secondary px-6 py-3 rounded-full font-label-caps text-label-caps hover:bg-secondary-container hover:text-on-secondary-container transition-all" href="buy.html">
+<span class="material-symbols-outlined text-[18px]">real_estate_agent</span> <span data-i18n="promo.browseProperties">Browse Properties</span>
+</a>
+<a class="flex-1 flex items-center justify-center gap-2 border border-outline-variant text-primary px-6 py-3 rounded-full font-label-caps text-label-caps hover:bg-surface-container transition-all" href="sell.html">
+<span class="material-symbols-outlined text-[18px]">sell</span> <span data-i18n="insights.listProperty">List Your Property</span>
+</a>
+</div>
+</div>
+
+<!-- Recent Check-Ins (this device) -->
+<div class="hidden w-full mt-stack-lg text-left" id="scanLogWrap">
+<h2 class="font-label-caps text-label-caps text-on-surface-variant mb-2" data-i18n="promo.recentCheckIns">Recent Check-Ins on This Device</h2>
+<div class="flex flex-col gap-2" id="scanLogList"></div>
+<p class="font-body-md text-[11px] text-on-surface-variant mt-2" data-i18n="promo.recentCheckInsNote">This log lives only in this browser — it is not shared automatically with the office. Use "Notify Office" above to send a record.</p>
+</div>
+</section>
+</main>
+
+<!-- BottomNavBar (Mobile Only) -->
+<script>
+const OWNER_WHATSAPP = '9647773002400';
+const SCAN_LOG_KEY = 'darwesh_agent_scan_log';
+
+function tr(key, fallback) { return (window.t && window.t(key)) || fallback; }
+const agentSelect = document.getElementById('agentSelect');
+const verifyAgentBtn = document.getElementById('verifyAgentBtn');
+const agentGate = document.getElementById('agentGate');
+const discountReveal = document.getElementById('discountReveal');
+const scanLogWrap = document.getElementById('scanLogWrap');
+const scanLogList = document.getElementById('scanLogList');
+
+agentSelect.addEventListener('change', () => {
+  verifyAgentBtn.disabled = !agentSelect.value;
+});
+
+function loadScanLog() {
+  try {
+    return JSON.parse(localStorage.getItem(SCAN_LOG_KEY) || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function renderScanLog() {
+  const log = loadScanLog();
+  if (log.length === 0) {
+    scanLogWrap.classList.add('hidden');
+    return;
+  }
+  scanLogWrap.classList.remove('hidden');
+  scanLogList.innerHTML = log.slice(-5).reverse().map(entry => `
+    <div class="flex items-center justify-between bg-surface-container-low rounded-lg px-4 py-2.5">
+      <span class="font-body-md text-body-md text-on-surface">${entry.name} <span class="text-on-surface-variant font-data-mono text-data-mono text-xs">(${entry.id})</span></span>
+      <span class="font-data-mono text-data-mono text-on-surface-variant text-xs">${entry.time}</span>
+    </div>
+  `).join('');
+}
+
+verifyAgentBtn.addEventListener('click', () => {
+  const opt = agentSelect.selectedOptions[0];
+  if (!opt || !opt.value) return;
+  const name = opt.value;
+  const id = opt.dataset.id;
+  const now = new Date();
+  const timeStr = now.toLocaleString();
+
+  const log = loadScanLog();
+  log.push({ name, id, time: timeStr });
+  localStorage.setItem(SCAN_LOG_KEY, JSON.stringify(log));
+
+  document.getElementById('verifiedByLine').textContent = `${tr('promo.verifiedByPrefix','Verified by')} ${name} · ${tr('promo.agentIdLabel','Agent ID')} ${id}`;
+  document.getElementById('verifiedAtLine').textContent = timeStr;
+
+  agentGate.classList.add('hidden');
+  discountReveal.classList.remove('hidden');
+  renderScanLog();
+});
+
+document.getElementById('notifyOfficeBtn').addEventListener('click', () => {
+  const log = loadScanLog();
+  const last = log[log.length - 1];
+  if (!last) return;
+  // Read the code out of the DOM rather than repeating the literal: when a
+  // live offer is published the reveal box below is rewritten from it, and
+  // the office notification has to name the code the customer was shown.
+  const code = document.getElementById('couponCode').textContent.trim();
+  const message = `Darwesh Group discount check-in: Agent ${last.name} (${last.id}) verified a customer for the ${code} offer at ${last.time}.`;
+  const url = `https://wa.me/${OWNER_WHATSAPP}?text=${encodeURIComponent(message)}`;
+  window.open(url, '_blank');
+});
+
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  const code = document.getElementById('couponCode').textContent;
+  try {
+    await navigator.clipboard.writeText(code);
+  } catch (e) {
+    // Clipboard API unavailable (e.g. insecure context); code stays visible to copy manually.
+  }
+  document.getElementById('copyIcon').textContent = 'check';
+  document.getElementById('copyLabel').textContent = tr('promo.copied','Copied!');
+  setTimeout(() => {
+    document.getElementById('copyIcon').textContent = 'content_copy';
+    document.getElementById('copyLabel').textContent = tr('promo.copyCode','Copy Code');
+  }, 2000);
+});
+
+renderScanLog();
+</script>
+
+<!-- One source of truth for the percentage (Offers & Discounts, brief §3).
+     This page's agent check-in gate, its reveal flow and its device log are
+     untouched -- only the numbers it shows are bound to whatever offer an
+     admin currently has published, so a change from 10% to 15% in Admin
+     cannot leave this page contradicting the rest of the site. With no
+     live offer the page keeps exactly the static copy it has always had. -->
+<script type="module">
+  import { fillTemplate } from './js/offers.js';
+
+  function tpl(key, fallback, percent) {
+    const s = (window.t && window.t(key)) || fallback;
+    return fillTemplate(s, percent);
+  }
+
+  function applyOffer(offer) {
+    if (!offer) return;
+    const percent = offer.discountPercent;
+    const h1 = document.querySelector('[data-i18n="promo.unlocked"]');
+    const sub = document.querySelector('[data-i18n="promo.subtitle"]');
+    const term1 = document.querySelector('[data-i18n="promo.term1"]');
+    if (h1) h1.textContent = tpl('promo.unlockedTpl', "You've Unlocked {percent}% Off", percent);
+    if (sub) {
+      sub.textContent = tpl('promo.subtitleTpl',
+        'Verified in person by a Darwesh Group agent, worth {percent}% off brokerage fees on your next Buy or Sell.',
+        percent);
+    }
+    if (term1) {
+      term1.textContent = tpl('promo.term1Tpl',
+        '{percent}% off Darwesh Group brokerage fees on Buy or Sell transactions', percent);
+    }
+    if (offer.promoCode) {
+      document.getElementById('couponCode').textContent = offer.promoCode;
+    }
+  }
+
+  let current = null;
+  try {
+    const [{ db }, store, offers] = await Promise.all([
+      import('./js/firebase-init.js'),
+      import('https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js'),
+      import('./js/offers.js'),
+    ]);
+    const { collection, query, where, limit, onSnapshot } = store;
+    offers.watchPublicOffer({ collection, query, where, limit, onSnapshot }, db, (offer) => {
+      current = offer;
+      applyOffer(offer);
+    }, { type: 'brokerage_fee' });
+  } catch (_) {
+    // Offline or Firestore unavailable: the static copy above already
+    // reads correctly, so there is nothing to repair here.
+  }
+
+  // i18n re-renders from data-i18n on a language switch, which would put
+  // the static text back. Re-apply the live numbers after it.
+  document.addEventListener('darwesh:langchange', () => applyOffer(current));
+</script>
+
+<script type="module" src="./js/nav-auth.js"></script>
+<script type="module" src="./js/notification-bell.js"></script>
+<script src="./js/i18n.js"></script>
+<script type="module" src="./js/error-monitor.js"></script>
+</body></html>

@@ -1,0 +1,55 @@
+name: Deploy Pages
+
+# C22-HK/Darwesh-Web is a published-output repository. It holds no source:
+# every file here was built in the private repository C22-HK/Darwesh by
+# scripts/build-public.mjs, checked by scripts/verify-public-build.mjs, and
+# pushed here. Do not edit files in this repo by hand -- the next publish
+# overwrites them, and the change would not exist in the real source.
+#
+# Actions-based Pages deployment, not "Deploy from a branch". That is
+# required, not a preference: branch mode serves the repository root
+# through Jekyll, which consumes .md files and republishes them as .html
+# while copying other files verbatim. The repo's Pages source must be set
+# to "GitHub Actions" under Settings -> Pages -> Build and deployment.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Publish the repository contents minus its own plumbing. .github
+      # holds this workflow and README.md describes the repo; neither is
+      # part of the website, so neither is served.
+      - name: Stage site
+        run: |
+          mkdir -p _site
+          rsync -a --exclude '.git' --exclude '.github' --exclude 'README.md' \
+            --exclude '_site' ./ _site/
+          test -f _site/index.html || { echo "::error::index.html missing"; exit 1; }
+          test -f _site/CNAME || { echo "::error::CNAME missing -- the custom domain would detach"; exit 1; }
+          echo "Publishing $(find _site -type f | wc -l | tr -d ' ') files."
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

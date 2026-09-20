@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<!-- CLIENT-04 (CLIENT_SIDE_SECURITY_REVIEW.md): meta-delivered CSP. GitHub Pages
+can't set HTTP headers, so this is the only delivery mechanism available.
+unsafe-inline on script and style sources is a deliberate, documented
+tradeoff: this codebase has no build step and dozens of inline script/style
+blocks per page; blocking them needs a nonce (impossible with no per-request
+server logic) or a SHA-256 hash per block kept in lockstep with every future
+edit across 21 pages, a real ongoing cost not taken on here. What this DOES
+still provide: an injected payload (e.g. CLIENT-01/02, both since fixed) can
+no longer load a script from an attacker-controlled domain or exfiltrate data
+via fetch or img to one. Note: frame-ancestors, report-uri, and sandbox are
+silently ignored when CSP is delivered via a meta tag (a browser spec rule,
+not an oversight here); this can never provide clickjacking protection or
+violation reporting. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://unpkg.com https://browser.sentry-cdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; img-src 'self' data: blob: https://firebasestorage.googleapis.com https://lh3.googleusercontent.com https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com; media-src 'self' blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebasestorage.googleapis.com https://darwesh-backend-353477435585.me-central1.run.app https://overpass-api.de https://nominatim.openstreetmap.org https://www.google.com https://*.ingest.sentry.io; frame-src https://www.google.com; object-src 'none'; base-uri 'self'; upgrade-insecure-requests"/>
+<script>(function(){var l=localStorage.getItem('darwesh_lang');document.documentElement.lang=l||'en';document.documentElement.dir=(l==='ku'||l==='ar')?'rtl':'ltr';})();</script>
+<script src="./js/icon-fallback.js"></script>
+<!-- escape-html.js + listing-image.js define plain globals (escapeHtml,
+     isSafeHttpUrl, listingImageUrl, listingNoImageLabel) that
+     js/property-discovery.js calls from async Firestore callbacks. These
+     load in <head>, ahead of the module, exactly as they did in the
+     previous inline-script version of this page. -->
+<script src="./js/escape-html.js"></script>
+<script src="./js/listing-image.js"></script>
+
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<!-- Favicon / app icons -- generated from the official Darwesh Group D-mark
+     (images/brand/darwesh-mark.png); geometry unmodified. Root-relative
+     paths so they resolve from every route regardless of the current page. -->
+<link rel="icon" href="/images/brand/favicon.ico" sizes="any"/>
+<link rel="icon" type="image/png" sizes="16x16" href="/images/brand/favicon-16.png"/>
+<link rel="icon" type="image/png" sizes="32x32" href="/images/brand/favicon-32.png"/>
+<link rel="icon" type="image/png" sizes="48x48" href="/images/brand/favicon-48.png"/>
+<link rel="apple-touch-icon" sizes="180x180" href="/images/brand/apple-touch-icon.png"/>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="canonical" href="https://www.darweshgroup.com/buy.html"/>
+<title>Darwesh Group - Buy a Property</title>
+<meta name="description" content="Browse properties for sale in Erbil, Sulaymaniyah, Duhok, Kirkuk and more, listed and reviewed by Darwesh Group."/>
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="Darwesh Group"/>
+<meta property="og:title" content="Darwesh Group - Buy a Property"/>
+<meta property="og:description" content="Browse properties for sale in Erbil, Sulaymaniyah, Duhok, Kirkuk and more, listed and reviewed by Darwesh Group."/>
+<meta property="og:url" content="https://www.darweshgroup.com/buy.html"/>
+<meta property="og:image" content="https://www.darweshgroup.com/images/brand/darwesh-logo-full.png"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="Darwesh Group - Buy a Property"/>
+<meta name="twitter:description" content="Browse properties for sale in Erbil, Sulaymaniyah, Duhok, Kirkuk and more, listed and reviewed by Darwesh Group."/>
+<meta name="twitter:image" content="https://www.darweshgroup.com/images/brand/darwesh-logo-full.png"/>
+<link href="css/tailwind.css" rel="stylesheet"/>
+<link href="css/profile-tokens.css" rel="stylesheet"/>
+<link href="css/cinematic.css" rel="stylesheet"/>
+<!-- Property Discovery (System A) -- shared with rent.html. See
+     js/property-discovery.js's header comment for the full architecture:
+     ONE engine, mounted here in Buy mode, replacing the page-specific
+     inline script this file used to carry. -->
+<link href="css/property-discovery.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;family=IBM+Plex+Sans:wght@600&amp;family=Inter:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+</head>
+<body class="cine-scope bg-background text-on-surface font-body-md antialiased overflow-x-hidden pt-[76px] pb-24 md:pb-16">
+<!-- TopAppBar -->
+<div id="siteHeader" data-active=""></div>
+<script src="./js/site-header.js"></script>
+<div id="siteMobileNav" data-active=""></div>
+<script src="./js/site-mobile-nav.js"></script>
+
+<main id="pdRoot" class="w-full"></main>
+
+<script type="module">
+  import { mountPropertyDiscovery } from './js/property-discovery.js';
+  mountPropertyDiscovery(document.getElementById('pdRoot'), { mode: 'buy' });
+</script>
+<script type="module" src="./js/nav-auth.js"></script>
+<script type="module" src="./js/notification-bell.js"></script>
+<script src="./js/i18n.js"></script>
+<script type="module" src="./js/error-monitor.js"></script>
+</body></html>

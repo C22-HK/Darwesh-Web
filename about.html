@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<!-- CLIENT-04 (CLIENT_SIDE_SECURITY_REVIEW.md): meta-delivered CSP. GitHub Pages
+can't set HTTP headers, so this is the only delivery mechanism available.
+unsafe-inline on script and style sources is a deliberate, documented
+tradeoff: this codebase has no build step and dozens of inline script/style
+blocks per page; blocking them needs a nonce (impossible with no per-request
+server logic) or a SHA-256 hash per block kept in lockstep with every future
+edit across 21 pages, a real ongoing cost not taken on here. What this DOES
+still provide: an injected payload (e.g. CLIENT-01/02, both since fixed) can
+no longer load a script from an attacker-controlled domain or exfiltrate data
+via fetch or img to one. Note: frame-ancestors, report-uri, and sandbox are
+silently ignored when CSP is delivered via a meta tag (a browser spec rule,
+not an oversight here); this can never provide clickjacking protection or
+violation reporting. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://unpkg.com https://browser.sentry-cdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; img-src 'self' data: blob: https://firebasestorage.googleapis.com https://lh3.googleusercontent.com https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com; media-src 'self' blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebasestorage.googleapis.com https://darwesh-backend-353477435585.me-central1.run.app https://overpass-api.de https://nominatim.openstreetmap.org https://www.google.com https://*.ingest.sentry.io; frame-src https://www.google.com; object-src 'none'; base-uri 'self'; upgrade-insecure-requests"/>
+<script>(function(){var l=localStorage.getItem('darwesh_lang');document.documentElement.lang=l||'en';document.documentElement.dir=(l==='ku'||l==='ar')?'rtl':'ltr';})();</script>
+<script src="./js/icon-fallback.js"></script>
+
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<!-- Favicon / app icons -- generated from the official Darwesh Group D-mark
+     (images/brand/darwesh-mark.png); geometry unmodified. Root-relative
+     paths so they resolve from every route regardless of the current page. -->
+<link rel="icon" href="/images/brand/favicon.ico" sizes="any"/>
+<link rel="icon" type="image/png" sizes="16x16" href="/images/brand/favicon-16.png"/>
+<link rel="icon" type="image/png" sizes="32x32" href="/images/brand/favicon-32.png"/>
+<link rel="icon" type="image/png" sizes="48x48" href="/images/brand/favicon-48.png"/>
+<link rel="apple-touch-icon" sizes="180x180" href="/images/brand/apple-touch-icon.png"/>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="canonical" href="https://www.darweshgroup.com/about.html"/>
+<title>Darwesh Group - About Us</title>
+<meta name="description" content="Darwesh Group is a real-estate and property-services group serving the Kurdistan Region and Iraq: buy, rent, sell, residential projects and verified professionals."/>
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="Darwesh Group"/>
+<meta property="og:title" content="Darwesh Group - About Us"/>
+<meta property="og:description" content="Darwesh Group is a real-estate and property-services group serving the Kurdistan Region and Iraq: buy, rent, sell, residential projects and verified professionals."/>
+<meta property="og:url" content="https://www.darweshgroup.com/about.html"/>
+<meta property="og:image" content="https://www.darweshgroup.com/images/brand/darwesh-logo-full.png"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="Darwesh Group - About Us"/>
+<meta name="twitter:description" content="Darwesh Group is a real-estate and property-services group serving the Kurdistan Region and Iraq: buy, rent, sell, residential projects and verified professionals."/>
+<meta name="twitter:image" content="https://www.darweshgroup.com/images/brand/darwesh-logo-full.png"/>
+<link href="css/tailwind.css" rel="stylesheet"/>
+<link href="css/profile-tokens.css" rel="stylesheet"/>
+<link href="css/cinematic.css" rel="stylesheet"/>
+<link href="css/about-story.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+</style>
+<style>
+  body {
+    min-height: max(884px, 100dvh);
+  }
+</style>
+</head>
+<!-- data-mam-reentrant: see the note in listing.html. Measured 0 top-level
+     bindings in any classic inline script here (this page loads only the
+     IIFE-wrapped language bootstrap above plus classic, self-invoking
+     js/about-story.js/js/reveal.js), so re-execution is safe. -->
+<body data-mam-reentrant data-page="about" class="cine-scope antialiased overflow-x-hidden font-body-md pt-[76px] pb-24 md:pb-0">
+<!-- TopAppBar -->
+<div id="siteHeader" data-active="about"></div>
+<script src="./js/site-header.js"></script>
+<div id="siteMobileNav" data-active="about"></div>
+<script src="./js/site-mobile-nav.js"></script>
+
+<!-- Main Content. This is the approved cinematic design supplied by the
+     user (DarweshGroup-About-3D-Preview.html), integrated into the real
+     site -- full reset of the previous dwa-* implementation, nothing
+     mixed. Everything below is scoped under #dgAbout (css/about-story.css)
+     using the supplied design's own "dg-*" naming. The real 12 services
+     keep their exact links (see js/about-story.js's `routes`), woven into
+     the Ecosystem fan and the Professionals section.
+
+     PHOTOGRAPHY: the hero image and the procedural Three.js model are
+     exactly as supplied. Every other photograph here is this repo's own
+     real photography (images/services/*.jpg, images/cities/*.jpg) rather
+     than the supplied preview's own downsampled mockup crops -- see
+     css/about-story.css's file header for why. Categories with no matching
+     real photo (Properties, Projects, Engineering, Moving, Furniture) get
+     an honest line-icon treatment instead, the same convention already
+     used site-wide for services with `photo: null` in
+     js/service-catalog.js.
+
+     LEGAL: the supplied preview's Terms/Privacy panel explicitly said "has
+     not been supplied for this preview" -- no such approved copy exists
+     anywhere in this repository, so that whole section is left out here
+     rather than shipping a placeholder or an invented policy. -->
+<main id="dgAbout">
+
+<!-- ===================================================================
+     HERO -- supplied render: villa concept, wireframe resolving into the
+     finished home, at sunset. GSAP pins and scrubs scale/parallax on it;
+     see js/about-story.js's rebuildMotion().
+     =================================================================== -->
+<section class="dg-hero" id="dg-intro" aria-labelledby="dgHeroTitle">
+<div class="dg-hero-stage">
+<img class="dg-hero-image" src="images/about/about-hero.jpg" width="1672" height="941" alt="Architectural concept of a contemporary villa, from wireframe to finished home, at sunset." fetchpriority="high"/>
+<div class="dg-hero-shade"></div>
+<div class="dg-hero-copy"><span class="dg-eyebrow"><i class="dg-rule"></i><span data-i18n="about.about">About Darwesh Group</span><i class="dg-rule"></i></span>
+<h1 id="dgHeroTitle" data-i18n="about.heroTitle">From the idea of your home,
+to the detail of living.</h1>
+<p class="dg-copy" data-i18n="about.heroCopy">Everything property and home-related, brought together in one place. From finding your next home to designing, building and caring for it.</p>
+</div>
+<div class="dg-hero-axis" aria-hidden="true"><span>01 — IDEA</span><span>02 — PLAN</span></div>
+<div class="dg-hero-axis dg-right" aria-hidden="true"><span>03 — BUILD</span><span>04 — HOME</span></div>
+<div class="dg-hero-bottom"><span data-i18n="about.region">Kurdistan Region<br/>&amp; Iraq</span><a class="dg-scroll" href="#dg-story" data-i18n="about.scroll">Scroll to begin</a><span data-i18n="about.concept">Architectural<br/>concept visual</span></div>
+</div>
+</section>
+
+<!-- ===================================================================
+     STORY
+     =================================================================== -->
+<section class="dg-story dg-wrap" id="dg-story" aria-labelledby="dgStoryTitle">
+<div class="dg-story-grid"><div data-dg-reveal><span class="dg-eyebrow" data-i18n="about.ourStory">Our story</span><h2 id="dgStoryTitle" data-i18n="about.storyTitle">A local vision for
+a better tomorrow.</h2></div>
+<div data-dg-reveal><p class="dg-copy" data-i18n="about.storyCopy">Darwesh Group brings people, properties and home services together across the Kurdistan Region and Iraq. We connect what you need with the people who can help make it happen.</p><p class="dg-copy" data-i18n="about.missionCopy">Our mission is built on transparency, innovation and trust: clearer information, easier connections and a more considered property journey.</p><a class="dg-link" href="#dg-journey" data-i18n="about.ourJourney">Our journey</a></div>
+</div>
+<div class="dg-values">
+<article class="dg-value"><span class="dg-value-number">01</span><h3 data-i18n="about.integrity">Integrity</h3><p data-i18n="about.integrityCopy">Real needs. Honest conversations. People come first.</p></article>
+<article class="dg-value"><span class="dg-value-number">02</span><h3 data-i18n="about.transparency">Transparency</h3><p data-i18n="about.transparencyCopy">Understand the details and the next step before you decide.</p></article>
+<article class="dg-value"><span class="dg-value-number">03</span><h3 data-i18n="about.innovation">Innovation</h3><p data-i18n="about.innovationCopy">Better tools to connect property, people and services.</p></article>
+</div>
+</section>
+
+<!-- ===================================================================
+     VISION -- real city photography (images/cities/), not a mockup crop.
+     =================================================================== -->
+<section class="dg-vision" aria-labelledby="dgVisionTitle">
+<div class="dg-vision-copy" data-dg-reveal><span class="dg-eyebrow" data-i18n="about.vision">Our vision</span><h2 id="dgVisionTitle" data-i18n="about.visionTitle">We connect
+ideas, people
+and places.</h2><p class="dg-copy" data-i18n="about.visionCopy">Merging technology and real estate, with a human connection at every step. From land to living, from design to delivery.</p></div>
+<div class="dg-city"><div class="dg-photo"><img src="images/cities/sulaymaniyah-city.jpg" alt="Sulaymaniyah at dusk." loading="lazy"/></div><span class="dg-city-label" data-i18n="about.spaces">Spaces · People · Better lives</span></div>
+</section>
+
+<!-- ===================================================================
+     JOURNEY
+     =================================================================== -->
+<section class="dg-journey dg-wrap" id="dg-journey" aria-labelledby="dgJourneyTitle">
+<div class="dg-journey-top"><div data-dg-reveal><span class="dg-eyebrow" data-i18n="about.journey">The journey</span><h2 id="dgJourneyTitle" data-i18n="about.journeyTitle">From concept
+to completion.</h2></div>
+<div class="dg-steps">
+<article class="dg-step"><b>01</b><h3 data-i18n="about.plan">Plan</h3><p data-i18n="about.planCopy">Define your needs and explore the possibilities.</p></article>
+<article class="dg-step"><b>02</b><h3 data-i18n="about.design">Design</h3><p data-i18n="about.designCopy">Turn your ideas into a clear, considered plan.</p></article>
+<article class="dg-step"><b>03</b><h3 data-i18n="about.build">Build</h3><p data-i18n="about.buildCopy">Connect with professionals to bring it to life.</p></article>
+<article class="dg-step"><b>04</b><h3 data-i18n="about.live">Live</h3><p data-i18n="about.liveCopy">Care for the place you call home.</p></article>
+</div>
+</div>
+</section>
+
+<!-- ===================================================================
+     SERVICES ECOSYSTEM. Content/links unchanged from the real 12
+     services (about.svc0X.* content folded in here -- see
+     js/about-story.js's `routes`). Real photography for the 4 categories
+     with a matching photo already in this repo; a line-icon treatment
+     (same honest convention used elsewhere for `photo: null` services)
+     for the rest.
+     =================================================================== -->
+<section class="dg-ecosystem" id="dg-services" aria-labelledby="dgServicesTitle">
+<div class="dg-service-heading" data-dg-reveal><span class="dg-eyebrow" data-i18n="about.ecosystem">Our services ecosystem</span><h2 id="dgServicesTitle" data-i18n="about.servicesTitle">More than a home.</h2><p class="dg-copy" data-i18n="about.servicesCopy">Property and the people who bring it to life. Connected in one place.</p></div>
+<div class="dg-fan" aria-label="Choose a service">
+<button class="dg-service" data-service="properties" aria-pressed="true"><span class="dg-photo"><img src="images/services/properties.jpg" alt="" loading="lazy"/></span><span class="dg-service-number">01</span><span class="dg-service-caption"><span data-i18n="about.properties">Properties</span><small data-i18n="about.propertiesSub">FIND YOUR PLACE</small></span></button>
+<button class="dg-service" data-service="projects" aria-pressed="false"><span class="dg-photo"><img src="images/services/projects.jpg" alt="" loading="lazy"/></span><span class="dg-service-number">02</span><span class="dg-service-caption"><span data-i18n="about.projects">Projects</span><small data-i18n="about.projectsSub">A BIGGER VISION</small></span></button>
+<button class="dg-service" data-service="designService" aria-pressed="false"><span class="dg-photo"><img src="images/services/interior-design.jpg" alt="" loading="lazy"/></span><span class="dg-service-number">03</span><span class="dg-service-caption"><span data-i18n="about.designService">Design</span><small data-i18n="about.designSub">MAKE IT YOURS</small></span></button>
+<button class="dg-service" data-service="engineering" aria-pressed="false"><span class="dg-photo"><img src="images/services/engineering.jpg" alt="" loading="lazy"/></span><span class="dg-service-number">04</span><span class="dg-service-caption"><span data-i18n="about.engineering">Engineering</span><small data-i18n="about.engineeringSub">FROM THE GROUND</small></span></button>
+<button class="dg-service" data-service="legalService" aria-pressed="false"><span class="dg-photo"><img src="images/services/legal-services.jpg" alt="" loading="lazy"/></span><span class="dg-service-number">05</span><span class="dg-service-caption"><span data-i18n="about.legalService">Legal support</span><small data-i18n="about.legalSub">CLARITY FIRST</small></span></button>
+<button class="dg-service" data-service="cleaning" aria-pressed="false"><span class="dg-photo"><img src="images/services/cleaning.jpg" alt="" loading="lazy"/></span><span class="dg-service-number">06</span><span class="dg-service-caption"><span data-i18n="about.cleaning">Cleaning</span><small data-i18n="about.cleaningSub">A FRESH START</small></span></button>
+<button class="dg-service" data-service="landscaping" aria-pressed="false"><span class="dg-photo"><img src="images/services/landscaping.jpg" alt="" loading="lazy"/></span><span class="dg-service-number">07</span><span class="dg-service-caption"><span data-i18n="about.landscaping">Landscaping</span><small data-i18n="about.landscapingSub">ROOM TO GROW</small></span></button>
+<button class="dg-service" data-service="moving" aria-pressed="false"><span class="dg-photo"><img src="images/services/moving.jpg" alt="" loading="lazy"/></span><span class="dg-service-number">08</span><span class="dg-service-caption"><span data-i18n="about.moving">Moving</span><small data-i18n="about.movingSub">THE NEXT CHAPTER</small></span></button>
+<button class="dg-service" data-service="furniture" aria-pressed="false"><span class="dg-photo"><img src="images/services/furniture.jpg" alt="" loading="lazy"/></span><span class="dg-service-number">09</span><span class="dg-service-caption"><span data-i18n="about.furniture">Furniture</span><small data-i18n="about.furnitureSub">THE FINAL DETAIL</small></span></button>
+</div>
+<div class="dg-service-detail"><div aria-live="polite" aria-atomic="true"><h3 id="dgServiceName">Properties</h3><p class="dg-copy" id="dgServiceDescription">Compare homes, apartments, shops and land. Arrange your next step through Darwesh Group.</p></div><a class="dg-link" id="dgServiceLink" href="buy.html" data-i18n="about.exploreService">Explore this service</a></div>
+<div class="dg-brand-end"><img class="dg-brand-seal" src="images/brand/darwesh-mark.png" alt="Darwesh Group mark" width="62" height="62"/><strong dir="ltr">Darwesh Group</strong><p data-i18n="about.oneEcosystem">One ecosystem. A brighter tomorrow.</p></div>
+</section>
+
+<!-- ===================================================================
+     PROFESSIONALS. Real photo (images/services/engineering.jpg -- a
+     genuine hands-on-blueprints shot, the closest fit in this repo's
+     library for "the people behind better places") rather than the
+     supplied preview's blurry mockup crop.
+     =================================================================== -->
+<section class="dg-people" aria-labelledby="dgPeopleTitle">
+<div class="dg-people-copy" data-dg-reveal><span class="dg-eyebrow" data-i18n="about.professionals">Our professionals</span><h2 id="dgPeopleTitle" data-i18n="about.peopleTitle">The people
+behind better places.</h2><p class="dg-copy" data-i18n="about.peopleCopy">Connect with engineers, designers, property lawyers and home service providers. The right expertise, for the next step of your journey.</p><a class="dg-link" href="services.html" data-i18n="about.meetProfessionals">Explore professionals</a></div>
+<div class="dg-photo dg-people-photo"><img src="images/services/engineering.jpg" alt="An engineer reviewing building plans." loading="lazy"/></div>
+</section>
+
+<!-- ===================================================================
+     TECHNOLOGY. The supplied procedural Three.js architectural model,
+     unchanged; falls back to the hero photo when WebGL is unavailable.
+     =================================================================== -->
+<section class="dg-tech dg-wrap" id="dg-technology" aria-labelledby="dgTechTitle">
+<div class="dg-model-frame"><img class="dg-model-fallback" src="images/about/about-hero.jpg" alt="Architectural concept of a contemporary villa." loading="lazy"/><div id="dgModel" aria-hidden="true"></div><div class="dg-model-caption"><span data-i18n="about.modelLabel">From plan to possibility</span><span id="dgModelState" data-i18n="about.conceptShort">Architectural concept</span></div></div>
+<div class="dg-tech-copy" data-dg-reveal><span class="dg-eyebrow" data-i18n="about.technology">Technology</span><h2 id="dgTechTitle" data-i18n="about.techTitle">A smarter way
+to experience property.</h2><p class="dg-copy" data-i18n="about.techCopy">Explore the map, discover projects and connect with the right services. MAM AI brings another way to begin your property search.</p><a class="dg-link" href="map.html" data-i18n="about.explorePlatform">Explore MAM AI</a></div>
+</section>
+
+<!-- ===================================================================
+     CLOSING -- real city photography.
+     =================================================================== -->
+<section class="dg-closing" aria-labelledby="dgClosingTitle"><div class="dg-photo"><img src="images/cities/erbil-citadel.jpg" alt="" loading="lazy"/></div><div class="dg-closing-copy" data-dg-reveal><span class="dg-eyebrow" data-i18n="about.brighter">A brighter tomorrow</span><h2 id="dgClosingTitle" data-i18n="about.closingTitle">Let's build a better
+way of living, together.</h2><a class="dg-button" href="services.html" data-i18n="about.startJourney">Start your journey</a></div></section>
+
+<button class="dg-motion-control" id="dgMotionToggle" type="button" aria-pressed="false"><span data-i18n="about.pauseMotion">Pause motion</span></button>
+</main>
+
+<div id="siteFooter"></div>
+<script type="module" src="./js/site-footer.js"></script>
+<!-- BottomNavBar (Mobile Only) -->
+<script type="module" src="./js/nav-auth.js"></script>
+<script type="module" src="./js/notification-bell.js"></script>
+<script src="./js/i18n.js"></script>
+<script type="module" src="./js/error-monitor.js"></script>
+<script src="./js/reveal.js"></script>
+<!-- Vendored, not CDN-loaded -- see vendor/gsap/README.md and
+     vendor/three/README.md. js/about-story.js checks for
+     window.gsap/window.ScrollTrigger before using either, falls back to
+     a static resolved state without them, and dynamically imports the
+     Three.js ES module only for the technology-section model (with its
+     own supplied-image fallback if WebGL is unavailable) -- the page
+     never depends on any of this to render something real. -->
+<script src="./vendor/gsap/gsap.min.js"></script>
+<script src="./vendor/gsap/ScrollTrigger.min.js"></script>
+<script src="./js/about-story.js"></script>
+</body></html>

@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<!-- CLIENT-04 (CLIENT_SIDE_SECURITY_REVIEW.md): meta-delivered CSP. GitHub Pages
+can't set HTTP headers, so this is the only delivery mechanism available.
+unsafe-inline on script and style sources is a deliberate, documented
+tradeoff: this codebase has no build step and dozens of inline script/style
+blocks per page; blocking them needs a nonce (impossible with no per-request
+server logic) or a SHA-256 hash per block kept in lockstep with every future
+edit across 21 pages, a real ongoing cost not taken on here. What this DOES
+still provide: an injected payload (e.g. CLIENT-01/02, both since fixed) can
+no longer load a script from an attacker-controlled domain or exfiltrate data
+via fetch or img to one. Note: frame-ancestors, report-uri, and sandbox are
+silently ignored when CSP is delivered via a meta tag (a browser spec rule,
+not an oversight here); this can never provide clickjacking protection or
+violation reporting. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://unpkg.com https://browser.sentry-cdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; img-src 'self' data: blob: https://firebasestorage.googleapis.com https://lh3.googleusercontent.com https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com; media-src 'self' blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebasestorage.googleapis.com https://darwesh-backend-353477435585.me-central1.run.app https://overpass-api.de https://nominatim.openstreetmap.org https://www.google.com https://*.ingest.sentry.io; frame-src https://www.google.com; object-src 'none'; base-uri 'self'; upgrade-insecure-requests"/>
+<script>(function(){var l=localStorage.getItem('darwesh_lang');document.documentElement.lang=l||'en';document.documentElement.dir=(l==='ku'||l==='ar')?'rtl':'ltr';})();</script>
+<script src="./js/icon-fallback.js"></script>
+
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<!-- Favicon / app icons -- generated from the official Darwesh Group D-mark
+     (images/brand/darwesh-mark.png); geometry unmodified. Root-relative
+     paths so they resolve from every route regardless of the current page. -->
+<link rel="icon" href="/images/brand/favicon.ico" sizes="any"/>
+<link rel="icon" type="image/png" sizes="16x16" href="/images/brand/favicon-16.png"/>
+<link rel="icon" type="image/png" sizes="32x32" href="/images/brand/favicon-32.png"/>
+<link rel="icon" type="image/png" sizes="48x48" href="/images/brand/favicon-48.png"/>
+<link rel="apple-touch-icon" sizes="180x180" href="/images/brand/apple-touch-icon.png"/>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="canonical" href="https://www.darweshgroup.com/insights.html"/>
+<title>Darwesh Group - Market Insights</title>
+<meta name="description" content="Real-estate market insights and price trends across the Kurdistan Region from Darwesh Group."/>
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="Darwesh Group"/>
+<meta property="og:title" content="Darwesh Group - Market Insights"/>
+<meta property="og:description" content="Real-estate market insights and price trends across the Kurdistan Region from Darwesh Group."/>
+<meta property="og:url" content="https://www.darweshgroup.com/insights.html"/>
+<meta property="og:image" content="https://www.darweshgroup.com/images/brand/darwesh-logo-full.png"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="Darwesh Group - Market Insights"/>
+<meta name="twitter:description" content="Real-estate market insights and price trends across the Kurdistan Region from Darwesh Group."/>
+<meta name="twitter:image" content="https://www.darweshgroup.com/images/brand/darwesh-logo-full.png"/>
+<link href="css/tailwind.css" rel="stylesheet"/>
+<link href="css/profile-tokens.css" rel="stylesheet"/>
+<link href="css/cinematic.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;family=IBM+Plex+Sans:wght@600&amp;family=Inter:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    body { min-height: max(884px, 100dvh); }
+
+    /* ---- Chart design tokens (validated categorical palette; see dataviz skill) ---- */
+    .viz-root {
+      --chart-surface: #17150F;
+      --ink-primary: #F2EEE5;
+      --ink-secondary: #A79F91;
+      --ink-muted: rgba(167,159,145,0.65);
+      --grid-line: rgba(93,72,43,0.4);
+      --axis-line: #5D482B;
+      --series-sale: #5B9BD9;
+      --series-sale-dim: #2E4A66;
+      --series-rent: #E08A52;
+      --series-rent-dim: #5C3A24;
+      --good-text: #7FB89A;
+    }
+
+    .kpi-card {
+      background: var(--chart-surface);
+      border: 1px solid #5D482B;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .kpi-label { font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--ink-secondary); text-transform: uppercase; }
+    .kpi-value { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px; font-weight: 700; color: var(--ink-primary); line-height: 1.15; }
+    .kpi-delta { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: var(--good-text); display: flex; align-items: center; gap: 2px; }
+    .kpi-note { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--ink-muted); }
+
+    .chart-card {
+      background: var(--chart-surface);
+      border: 1px solid #5D482B;
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .chart-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 17px; font-weight: 700; color: var(--ink-primary); }
+    .chart-subtitle { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--ink-secondary); }
+
+    .chart-legend { display: flex; align-items: center; gap: 16px; font-family: 'Inter', sans-serif; font-size: 12.5px; color: var(--ink-secondary); }
+    .chart-legend .swatch { display: inline-flex; align-items: center; gap: 6px; }
+    .chart-legend .swatch-mark { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+    .chart-svg-wrap { position: relative; width: 100%; }
+    .chart-svg-wrap svg { width: 100%; height: auto; display: block; overflow: visible; }
+
+    .bar-mark { transition: opacity .15s ease; cursor: pointer; }
+    .bar-mark:hover, .bar-mark:focus { opacity: 0.85; outline: none; }
+    .bar-mark.dim { opacity: 0.35; }
+
+    .chart-tip {
+      position: absolute;
+      pointer-events: none;
+      background: #101111;
+      color: #F2EEE5;
+      font-family: 'Inter', sans-serif;
+      font-size: 12.5px;
+      border: 1px solid #5D482B;
+      border-radius: 8px;
+      padding: 8px 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      opacity: 0;
+      transform: translate(-50%, calc(-100% - 10px));
+      transition: opacity .12s ease;
+      z-index: 20;
+      white-space: nowrap;
+      line-height: 1.5;
+    }
+    .chart-tip.show { opacity: 1; }
+    .chart-tip .tip-value { font-weight: 700; font-size: 13.5px; }
+    .chart-tip .tip-row { display: flex; align-items: center; gap: 6px; }
+    .chart-tip .tip-key { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+
+    .crosshair-line { stroke: var(--axis-line); stroke-width: 1; pointer-events: none; opacity: 0; }
+    .crosshair-line.show { opacity: 1; }
+
+    .table-toggle {
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #B89A63;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: none;
+      padding: 0;
+    }
+    .data-table-wrap { display: none; margin-top: 12px; overflow-x: auto; }
+    .data-table-wrap.open { display: block; }
+    .data-table { width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif; font-size: 13px; }
+    .data-table th, .data-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #5D482B; }
+    .data-table th { color: var(--ink-secondary); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+    .data-table td { color: var(--ink-primary); font-variant-numeric: tabular-nums; }
+
+    .city-filter-select {
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      color: #F2EEE5;
+      background: #17150F;
+      border: 1px solid #5D482B;
+      border-radius: 999px;
+      padding: 8px 32px 8px 14px;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A79F91' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 16px;
+      cursor: pointer;
+    }
+    .city-filter-select:focus { outline: 2px solid #B89A63; outline-offset: 1px; }
+  </style>
+</head>
+<body class="cine-scope bg-background text-on-surface font-body-md antialiased overflow-x-hidden pt-[76px] pb-24 md:pb-0">
+<!-- TopAppBar -->
+<div id="siteHeader" data-active=""></div>
+<script src="./js/site-header.js"></script>
+<div id="siteMobileNav" data-active=""></div>
+<script src="./js/site-mobile-nav.js"></script>
+
+<main class="viz-root max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-8">
+
+  <!-- Page intro -->
+  <div class="mb-6">
+    <p class="font-label-caps text-label-caps text-secondary mb-2" data-i18n="insights.badge">MARKET INSIGHTS</p>
+    <h1 class="font-headline-md text-[28px] md:text-display-lg-mobile text-primary mb-2" data-i18n="insights.title">Kurdistan Region Market Overview</h1>
+    <p class="font-body-md text-body-md text-on-surface-variant max-w-2xl" data-i18n="insights.subtitle">A snapshot of buying, renting, and pricing activity across Darwesh Group's active listings — filter by city to see how it compares to the regional picture.</p>
+  </div>
+
+  <!-- Filter row -->
+  <div class="flex items-center gap-3 mb-6">
+    <label for="cityFilter" class="font-label-caps text-label-caps text-on-surface-variant" data-i18n="insights.filterByCity">Filter by city</label>
+    <select id="cityFilter" class="city-filter-select">
+      <option value="all" data-i18n="buy.allCities">All Cities</option>
+      <option value="Erbil" data-i18n="cities.erbil">Erbil</option>
+      <option value="Sulaymaniyah" data-i18n="cities.sulaymaniyah">Sulaymaniyah</option>
+      <option value="Duhok" data-i18n="cities.duhok">Duhok</option>
+      <option value="Soran" data-i18n="cities.soran">Soran</option>
+      <option value="Zakho" data-i18n="cities.zakho">Zakho</option>
+      <option value="Koya" data-i18n="cities.koya">Koya</option>
+      <option value="Kirkuk" data-i18n="cities.kirkuk">Kirkuk</option>
+    </select>
+  </div>
+
+  <!-- KPI row -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
+    <div class="kpi-card">
+      <p class="kpi-label" id="kpiListingsLabel" data-i18n="insights.activeListings">Active listings</p>
+      <p class="kpi-value" id="kpiListings">—</p>
+      <p class="kpi-note" id="kpiListingsNote">&nbsp;</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label" id="kpiSaleLabel" data-i18n="insights.avgSalePrice">Avg. sale price</p>
+      <p class="kpi-value" id="kpiSale">—</p>
+      <p class="kpi-note">&nbsp;</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label" id="kpiRentLabel" data-i18n="insights.avgMonthlyRent">Avg. monthly rent</p>
+      <p class="kpi-value" id="kpiRent">—</p>
+      <p class="kpi-note">&nbsp;</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label" data-i18n="insights.verifiedListings">Verified listings</p>
+      <p class="kpi-value" id="kpiVerified">—</p>
+      <p class="kpi-note" data-i18n="insights.platformWide">Platform-wide, all cities</p>
+    </div>
+  </div>
+
+  <!-- Chart 1: Avg sale price by city -->
+  <div class="chart-card mb-6">
+    <div class="flex items-start justify-between flex-wrap gap-2 mb-1">
+      <div>
+        <p class="chart-title" data-i18n="insights.chart1Title">Average sale price by city</p>
+        <p class="chart-subtitle" data-i18n="insights.chart1Subtitle">USD, based on active for-sale listings</p>
+      </div>
+    </div>
+    <div class="chart-svg-wrap mt-4" id="chart1Wrap">
+      <svg id="chart1Svg" viewBox="0 0 600 300" role="img" aria-label="Bar chart of average sale price by city"></svg>
+      <div class="chart-tip" id="chart1Tip"></div>
+    </div>
+    <button class="table-toggle mt-3" data-target="chart1Table" type="button">
+      <span class="material-symbols-outlined" style="font-size:15px;">format_list_bulleted</span><span data-i18n="insights.viewAsTable">View as table</span>
+    </button>
+    <div class="data-table-wrap" id="chart1Table">
+      <table class="data-table">
+        <thead><tr><th data-i18n="insights.thCity">City</th><th data-i18n="insights.thAvgSalePrice">Avg. sale price</th><th data-i18n="insights.thActiveSaleListings">Active sale listings</th></tr></thead>
+        <tbody id="chart1TableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Chart 2: Sale vs rent listings by city -->
+  <div class="chart-card mb-6">
+    <div class="flex items-start justify-between flex-wrap gap-3 mb-1">
+      <div>
+        <p class="chart-title" data-i18n="insights.chart2Title">For-sale vs. for-rent listings by city</p>
+        <p class="chart-subtitle" data-i18n="insights.chart2Subtitle">Number of active listings</p>
+      </div>
+      <div class="chart-legend">
+        <span class="swatch"><span class="swatch-mark" style="background:#5B9BD9;"></span><span data-i18n="common.forSale">For Sale</span></span>
+        <span class="swatch"><span class="swatch-mark" style="background:#E08A52;"></span><span data-i18n="common.forRent">For Rent</span></span>
+      </div>
+    </div>
+    <div class="chart-svg-wrap mt-4" id="chart2Wrap">
+      <svg id="chart2Svg" viewBox="0 0 600 300" role="img" aria-label="Grouped bar chart of for-sale versus for-rent listings by city"></svg>
+      <div class="chart-tip" id="chart2Tip"></div>
+    </div>
+    <button class="table-toggle mt-3" data-target="chart2Table" type="button">
+      <span class="material-symbols-outlined" style="font-size:15px;">format_list_bulleted</span><span data-i18n="insights.viewAsTable">View as table</span>
+    </button>
+    <div class="data-table-wrap" id="chart2Table">
+      <table class="data-table">
+        <thead><tr><th data-i18n="insights.thCity">City</th><th data-i18n="insights.thForSale">For sale</th><th data-i18n="insights.thForRent">For rent</th></tr></thead>
+        <tbody id="chart2TableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Methodology + CTAs -->
+  <div class="border-t border-outline-variant pt-6 pb-4">
+    <p class="font-body-md text-[13px] text-on-surface-variant max-w-2xl mb-6" data-i18n="insights.methodology">Figures are computed live from active listings on the Darwesh Group platform — sold and rented listings are excluded. For exact, individual listings, use the interactive map.</p>
+    <div class="flex flex-wrap gap-3">
+      <a href="map.html" class="bg-primary text-on-primary px-6 py-3 rounded-full font-label-caps text-label-caps hover:bg-primary-container transition-all inline-flex items-center gap-2">
+        <span class="material-symbols-outlined" style="font-size:18px;">map</span><span data-i18n="insights.browseMap">Browse the Map</span>
+      </a>
+      <a href="sell.html" class="border border-outline-variant text-on-surface px-6 py-3 rounded-full font-label-caps text-label-caps hover:bg-surface-container transition-all inline-flex items-center gap-2">
+        <span class="material-symbols-outlined" style="font-size:18px;">sell</span><span data-i18n="insights.listProperty">List Your Property</span>
+      </a>
+    </div>
+  </div>
+
+</main>
+
+<!-- BottomNavBar (Mobile Only) -->
+<script src="./js/i18n.js"></script>
+<script type="module">
+import { db, getDocs } from './js/firebase-init.js';
+import { collection, query, where } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
+// Firestore's listings.city is attacker-controllable (any agent account
+// can set it to arbitrary text -- firestore.rules validates who can
+// write a field, not its content) and cityLabel() below falls through
+// to that raw value for any city it doesn't recognize, so every render
+// site must escape it. Safe for BOTH text-node content and quoted
+// attribute values -- unlike the div.textContent-round-trip escaper
+// used elsewhere in this codebase (safe for text nodes only, since
+// quote characters aren't structurally significant there), this one
+// explicitly escapes " and ' too, so it can't be used to break out of
+// a data-*="..."/aria-label="..." attribute.
+function escapeHtml(str) {
+  return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+// ---------------------------------------------------------------------
+// Real data — computed live from the "listings" collection (the same
+// data every agent's Agent Dashboard and the public map read from).
+// Sold/rented (status: 'closed') listings are excluded, matching every
+// other public-facing count on the site. CITY_STATS only ever contains
+// cities that actually have at least one real listing right now — no
+// city gets a fabricated $0 bar just to fill out the chart.
+// ---------------------------------------------------------------------
+let CITY_STATS = [];
+let TOTAL_LISTINGS = 0;
+let VERIFIED_PCT = null;
+
+async function loadRealMarketData() {
+  const byCity = {};
+  let total = 0, verified = 0;
+  try {
+    const q = query(collection(db, 'listings'), where('private', '==', false), where('status', '==', 'active'));
+    const snap = await getDocs(q);
+    snap.forEach(d => {
+      const l = d.data();
+      total++;
+      if (l.verified) verified++;
+      const city = l.city || 'Other';
+      if (!byCity[city]) byCity[city] = { city, saleSum: 0, saleCount: 0, rentSum: 0, rentCount: 0 };
+      const price = Number(l.price) || 0;
+      if (l.dealType === 'sale') { byCity[city].saleSum += price; byCity[city].saleCount++; }
+      else if (l.dealType === 'rent') { byCity[city].rentSum += price; byCity[city].rentCount++; }
+    });
+  } catch (e) {
+    // Leave everything at its honest zero/empty default below.
+  }
+
+  CITY_STATS = Object.values(byCity).map(c => ({
+    city: c.city,
+    saleAvg: c.saleCount ? c.saleSum / c.saleCount : 0,
+    saleCount: c.saleCount,
+    rentAvg: c.rentCount ? c.rentSum / c.rentCount : 0,
+    rentCount: c.rentCount
+  })).sort((a, b) => (b.saleCount + b.rentCount) - (a.saleCount + a.rentCount));
+
+  TOTAL_LISTINGS = total;
+  VERIFIED_PCT = total ? Math.round((verified / total) * 100) : null;
+}
+
+const COLOR_SALE = "#5B9BD9";
+const COLOR_SALE_DIM = "#2E4A66";
+const COLOR_RENT = "#E08A52";
+const COLOR_RENT_DIM = "#5C3A24";
+
+function fmtUSD(n) { return "$" + Math.round(n).toLocaleString("en-US"); }
+function fmtCompactUSD(n) {
+  if (n >= 1000) return "$" + (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + "K";
+  return "$" + n;
+}
+function niceMax(v) {
+  const mag = Math.pow(10, Math.floor(Math.log10(v)));
+  const norm = v / mag;
+  let step;
+  if (norm <= 1) step = 1; else if (norm <= 2) step = 2; else if (norm <= 5) step = 5; else step = 10;
+  return step * mag;
+}
+
+// ---------------------------------------------------------------------
+// KPI computation (recomputed on filter change)
+// ---------------------------------------------------------------------
+function computeKPIs(cityName) {
+  const rows = cityName === "all" ? CITY_STATS : CITY_STATS.filter(c => c.city === cityName);
+  let saleSum = 0, saleCount = 0, rentSum = 0, rentCount = 0;
+  rows.forEach(c => {
+    saleSum += c.saleAvg * c.saleCount; saleCount += c.saleCount;
+    rentSum += c.rentAvg * c.rentCount; rentCount += c.rentCount;
+  });
+  return {
+    totalListings: saleCount + rentCount,
+    avgSale: saleCount ? saleSum / saleCount : 0,
+    avgRent: rentCount ? rentSum / rentCount : 0
+  };
+}
+
+function renderKPIs(cityName) {
+  const k = computeKPIs(cityName);
+  const scopeLabel = cityName === "all" ? "All cities" : cityLabel(cityName);
+  document.getElementById("kpiListings").textContent = k.totalListings.toLocaleString("en-US");
+  document.getElementById("kpiListingsNote").textContent = scopeLabel;
+  document.getElementById("kpiSale").textContent = k.avgSale ? fmtUSD(k.avgSale) : "—";
+  document.getElementById("kpiRent").textContent = k.avgRent ? fmtUSD(k.avgRent) + "/mo" : "—";
+  document.getElementById("kpiVerified").textContent = VERIFIED_PCT === null ? "—" : VERIFIED_PCT + "%";
+}
+
+// ---------------------------------------------------------------------
+// Tooltip helper
+// ---------------------------------------------------------------------
+function showTip(tipEl, wrapEl, x, y, rowsHtml) {
+  tipEl.innerHTML = rowsHtml;
+  const wrapRect = wrapEl.getBoundingClientRect();
+  const scale = wrapRect.width / wrapEl.querySelector('svg').viewBox.baseVal.width;
+  tipEl.style.left = (x * scale) + "px";
+  tipEl.style.top = (y * scale) + "px";
+  tipEl.classList.add("show");
+}
+function hideTip(tipEl) { tipEl.classList.remove("show"); }
+
+// ---------------------------------------------------------------------
+// Chart 1 — Average sale price by city (single-series bar, emphasis on filter)
+// ---------------------------------------------------------------------
+function tr(key, fallback) { return (window.t && window.t(key)) || fallback; }
+
+function renderEmptyChart(svg, message) {
+  const W = svg.viewBox.baseVal.width || 600, H = svg.viewBox.baseVal.height || 300;
+  svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" font-size="13" font-family="Inter, sans-serif" fill="var(--ink-muted)">${message}</text>`;
+}
+
+function renderChart1(activeCity) {
+  const svg = document.getElementById("chart1Svg");
+  const tip = document.getElementById("chart1Tip");
+  const wrap = document.getElementById("chart1Wrap");
+  const cities = CITY_STATS.filter(c => c.saleCount > 0);
+  const tbody = document.getElementById("chart1TableBody");
+
+  if (cities.length === 0) {
+    renderEmptyChart(svg, tr('insights.notEnoughSaleData', 'Not enough sale listings yet to chart this.'));
+    tbody.innerHTML = "";
+    return;
+  }
+
+  const W = 600, H = 300, ML = 56, MR = 12, MT = 28, MB = 44;
+  const plotW = W - ML - MR, plotH = H - MT - MB;
+  const maxY = niceMax(Math.max(...cities.map(c => c.saleAvg)) * 1.08);
+  const yTicks = [0, maxY / 3, (maxY / 3) * 2, maxY];
+  const n = cities.length;
+  const slot = plotW / n;
+  const barW = Math.min(28, slot * 0.5);
+
+  let gridSvg = "";
+  yTicks.forEach(t => {
+    const y = MT + plotH - (t / maxY) * plotH;
+    gridSvg += `<line x1="${ML}" y1="${y}" x2="${W - MR}" y2="${y}" class="grid-h" stroke="var(--grid-line)" stroke-width="1"/>`;
+    gridSvg += `<text x="${ML - 8}" y="${y + 4}" text-anchor="end" font-size="11" font-family="Inter, sans-serif" fill="var(--ink-muted)">${fmtCompactUSD(t)}</text>`;
+  });
+
+  let bars = "";
+  cities.forEach((c, i) => {
+    const x = ML + i * slot + (slot - barW) / 2;
+    const barH = (c.saleAvg / maxY) * plotH;
+    const y = MT + plotH - barH;
+    const dim = activeCity !== "all" && activeCity !== c.city;
+    const safeCityLabel = escapeHtml(cityLabel(c.city));
+    bars += `
+      <g class="bar-mark${dim ? ' dim' : ''}" tabindex="0" role="img" aria-label="${safeCityLabel}, average sale price ${fmtUSD(c.saleAvg)}"
+         data-city="${escapeHtml(c.city)}" data-value="${c.saleAvg}" data-count="${c.saleCount}" data-cx="${x + barW / 2}" data-topy="${y}">
+        <rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="4" fill="${COLOR_SALE}"/>
+        <text x="${x + barW / 2}" y="${y - 8}" text-anchor="middle" font-size="11.5" font-weight="700" font-family="Inter, sans-serif" fill="var(--ink-primary)">${fmtCompactUSD(c.saleAvg)}</text>
+        <text x="${x + barW / 2}" y="${H - MB + 18}" text-anchor="middle" font-size="11.5" font-family="Inter, sans-serif" fill="var(--ink-secondary)">${safeCityLabel}</text>
+      </g>`;
+  });
+
+  svg.innerHTML = `${gridSvg}<line x1="${ML}" y1="${MT + plotH}" x2="${W - MR}" y2="${MT + plotH}" stroke="var(--axis-line)" stroke-width="1"/>${bars}`;
+
+  svg.querySelectorAll(".bar-mark").forEach(el => {
+    const onEnter = () => {
+      const city = escapeHtml(cityLabel(el.dataset.city)), value = Number(el.dataset.value), count = el.dataset.count;
+      const cx = Number(el.dataset.cx), topy = Number(el.dataset.topy);
+      showTip(tip, wrap, cx, topy, `
+        <div style="font-weight:700;margin-bottom:2px;">${city}</div>
+        <div class="tip-row"><span class="tip-key" style="background:${COLOR_SALE}"></span><span class="tip-value">${fmtUSD(value)}</span> avg. sale price</div>
+        <div style="color:#A79F91;">${count} active sale listing${count == 1 ? '' : 's'}</div>
+      `);
+    };
+    el.addEventListener("pointerenter", onEnter);
+    el.addEventListener("focus", onEnter);
+    el.addEventListener("pointerleave", () => hideTip(tip));
+    el.addEventListener("blur", () => hideTip(tip));
+  });
+
+  tbody.innerHTML = cities.map(c => `<tr><td>${escapeHtml(cityLabel(c.city))}</td><td>${fmtUSD(c.saleAvg)}</td><td>${c.saleCount}</td></tr>`).join("");
+}
+
+// ---------------------------------------------------------------------
+// Chart 2 — Sale vs rent listing counts by city (grouped bar, 2 series)
+// ---------------------------------------------------------------------
+function renderChart2(activeCity) {
+  const svg = document.getElementById("chart2Svg");
+  const tip = document.getElementById("chart2Tip");
+  const wrap = document.getElementById("chart2Wrap");
+  const tbody = document.getElementById("chart2TableBody");
+
+  if (CITY_STATS.length === 0) {
+    renderEmptyChart(svg, tr('insights.notEnoughData', 'Not enough listings yet to chart this.'));
+    tbody.innerHTML = "";
+    return;
+  }
+
+  const W = 600, H = 300, ML = 40, MR = 12, MT = 20, MB = 44;
+  const plotW = W - ML - MR, plotH = H - MT - MB;
+  const maxCount = Math.max(...CITY_STATS.map(c => Math.max(c.saleCount, c.rentCount)));
+  const maxY = niceMax(maxCount * 1.15);
+  const yTicks = [0, maxY / 2, maxY];
+  const n = CITY_STATS.length;
+  const slot = plotW / n;
+  const barW = Math.min(20, slot * 0.28);
+  const gap = 3;
+
+  let gridSvg = "";
+  yTicks.forEach(t => {
+    const y = MT + plotH - (t / maxY) * plotH;
+    gridSvg += `<line x1="${ML}" y1="${y}" x2="${W - MR}" y2="${y}" stroke="var(--grid-line)" stroke-width="1"/>`;
+    gridSvg += `<text x="${ML - 8}" y="${y + 4}" text-anchor="end" font-size="11" font-family="Inter, sans-serif" fill="var(--ink-muted)">${Math.round(t)}</text>`;
+  });
+
+  let bars = "";
+  CITY_STATS.forEach((c, i) => {
+    const groupX = ML + i * slot + slot / 2;
+    const dim = activeCity !== "all" && activeCity !== c.city;
+    const saleH = (c.saleCount / maxY) * plotH;
+    const rentH = (c.rentCount / maxY) * plotH;
+    const saleX = groupX - barW - gap / 2;
+    const rentX = groupX + gap / 2;
+    const safeCityLabel2 = escapeHtml(cityLabel(c.city));
+    const safeCityAttr2 = escapeHtml(c.city);
+    bars += `
+      <g class="bar-mark${dim ? ' dim' : ''}" tabindex="0" role="img" aria-label="${safeCityLabel2} for sale ${c.saleCount}"
+         data-city="${safeCityAttr2}" data-type="For Sale" data-value="${c.saleCount}" data-color="${COLOR_SALE}" data-cx="${saleX + barW / 2}" data-topy="${MT + plotH - saleH}">
+        <rect x="${saleX}" y="${MT + plotH - saleH}" width="${barW}" height="${saleH}" rx="4" fill="${COLOR_SALE}"/>
+      </g>
+      <g class="bar-mark${dim ? ' dim' : ''}" tabindex="0" role="img" aria-label="${safeCityLabel2} for rent ${c.rentCount}"
+         data-city="${safeCityAttr2}" data-type="For Rent" data-value="${c.rentCount}" data-color="${COLOR_RENT}" data-cx="${rentX + barW / 2}" data-topy="${MT + plotH - rentH}">
+        <rect x="${rentX}" y="${MT + plotH - rentH}" width="${barW}" height="${rentH}" rx="4" fill="${COLOR_RENT}"/>
+      </g>
+      <text x="${groupX}" y="${H - MB + 18}" text-anchor="middle" font-size="11.5" font-family="Inter, sans-serif" fill="var(--ink-secondary)">${safeCityLabel2}</text>`;
+  });
+
+  svg.innerHTML = `${gridSvg}<line x1="${ML}" y1="${MT + plotH}" x2="${W - MR}" y2="${MT + plotH}" stroke="var(--axis-line)" stroke-width="1"/>${bars}`;
+
+  svg.querySelectorAll(".bar-mark").forEach(el => {
+    const onEnter = () => {
+      const city = escapeHtml(cityLabel(el.dataset.city)), type = el.dataset.type, value = el.dataset.value, color = el.dataset.color;
+      const cx = Number(el.dataset.cx), topy = Number(el.dataset.topy);
+      showTip(tip, wrap, cx, topy, `
+        <div style="font-weight:700;margin-bottom:2px;">${city}</div>
+        <div class="tip-row"><span class="tip-key" style="background:${color}"></span><span class="tip-value">${value}</span> ${type} listing${value == 1 ? '' : 's'}</div>
+      `);
+    };
+    el.addEventListener("pointerenter", onEnter);
+    el.addEventListener("focus", onEnter);
+    el.addEventListener("pointerleave", () => hideTip(tip));
+    el.addEventListener("blur", () => hideTip(tip));
+  });
+
+  tbody.innerHTML = CITY_STATS.map(c => `<tr><td>${escapeHtml(cityLabel(c.city))}</td><td>${c.saleCount}</td><td>${c.rentCount}</td></tr>`).join("");
+}
+
+// ---------------------------------------------------------------------
+// Wiring
+// ---------------------------------------------------------------------
+function renderAll(cityName) {
+  renderKPIs(cityName);
+  renderChart1(cityName);
+  renderChart2(cityName);
+}
+
+document.getElementById("cityFilter").addEventListener("change", (e) => renderAll(e.target.value));
+
+document.querySelectorAll(".table-toggle").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const target = document.getElementById(btn.dataset.target);
+    target.classList.toggle("open");
+    const icon = btn.querySelector(".material-symbols-outlined");
+    btn.lastChild.textContent = target.classList.contains("open") ? " Hide table" : " View as table";
+  });
+});
+
+await loadRealMarketData();
+renderAll("all");
+document.addEventListener('darwesh:langchange', () => { renderAll(document.getElementById("cityFilter").value); });
+</script>
+<script type="module" src="./js/nav-auth.js"></script>
+<script type="module" src="./js/notification-bell.js"></script>
+<script type="module" src="./js/error-monitor.js"></script>
+</body></html>
