@@ -1787,20 +1787,93 @@ const photoUploadState = new Map(); // File -> { url, error, promise }
 // of whether any property photo is ever uploaded.
 let sellPhotoToken = crypto.randomUUID();
 
+// ---- SEC-2: server-issued upload session (with fallback) ----------------
+//
+// One session per page load, requested lazily on the first upload and
+// holding a slot per photo. The SERVER chooses the submission token
+// and every object path; this page only picks which free slot to use
+// next.
+//
+// sellUploadSession stays null when the backend has no session
+// endpoint -- which is the case in production today and remains so
+// until SELL_UPLOAD_BUCKET is configured. Everything below then falls
+// back to the original SDK upload path, unchanged. That is deliberate:
+// ONE build of this page has to behave correctly both before and after
+// that switch is flipped, because visitors run whatever copy their
+// browser cached. See docs/SEC2_CUTOVER.md.
+const SELL_SESSION_SLOTS = 20; // matches backend app/sell/limits.py
+let sellUploadSession = null;
+let sellUploadSessionTried = false;
+let sellUploadSlotCursor = 0;
+
+async function ensureUploadSession() {
+  if (sellUploadSessionTried) return sellUploadSession;
+  sellUploadSessionTried = true;
+  try {
+    const api = await import('./js/backend-api.js');
+    sellUploadSession = await api.requestUploadSession('property-photo', SELL_SESSION_SLOTS);
+    if (sellUploadSession && sellUploadSession.submissionToken) {
+      // The server's token replaces the client-generated one, so the
+      // submission document and the objects agree on one identifier --
+      // and it is one this page did not choose.
+      sellPhotoToken = sellUploadSession.submissionToken;
+    }
+  } catch (err) {
+    // A 503 (signing configured but broken) lands here. Do NOT fall
+    // back: an unsigned write is exactly the hole SEC-2 closes, and
+    // reopening it when something is already wrong is the worst
+    // possible moment. The upload fails and the user retries.
+    console.error('[sell] upload session unavailable', err);
+    sellUploadSession = null;
+    throw err;
+  }
+  return sellUploadSession;
+}
+
+function takeUploadSlot() {
+  if (!sellUploadSession) return null;
+  const uploads = sellUploadSession.uploads || [];
+  if (sellUploadSlotCursor >= uploads.length) return null;
+  return uploads[sellUploadSlotCursor++];
+}
+
 function ensurePhotoUploadStarted(file) {
   if (photoUploadState.has(file)) return;
-  const state = { url: null, error: null, promise: null };
+  const state = { url: null, path: null, error: null, promise: null };
   photoUploadState.set(file, state);
   state.promise = (async () => {
     const t0 = performance.now();
     try {
       await getSubmissionAuthReady();
       const compressed = await compressImage(file);
-      const safeName = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '-' +
-        file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.[^.]*$/, '.jpg');
-      const fileRef = storageFns.ref(submitStorage, `sell-submissions/${sellPhotoToken}/${safeName}`);
-      await withTimeout(storageFns.uploadBytes(fileRef, compressed), PHOTO_UPLOAD_TIMEOUT_MS);
-      state.url = await withTimeout(storageFns.getDownloadURL(fileRef), PHOTO_UPLOAD_TIMEOUT_MS);
+
+      const session = await ensureUploadSession();
+      const slot = session ? takeUploadSlot() : null;
+      if (slot) {
+        // SEC-2 path. The url is signed for this exact object, this
+        // exact content type, a short expiry and create-only; the
+        // headers are part of the signature and must go out verbatim.
+        const api = await import('./js/backend-api.js');
+        await withTimeout(api.putToSignedUrl(slot, compressed), PHOTO_UPLOAD_TIMEOUT_MS);
+        // Nothing may reference this object until the server has read
+        // back what actually landed -- real size, real leading bytes,
+        // real generation. A signed url cannot carry a size cap or
+        // prove the bytes are an image.
+        await withTimeout(api.completeUpload(session.sessionId, slot.path), PHOTO_UPLOAD_TIMEOUT_MS);
+        // The PATH, not a download url. A download url is a permanent
+        // bearer capability that no Storage Rules change can revoke,
+        // which is why storing them is what made a leaked url as good
+        // as public access.
+        state.path = slot.path;
+      } else {
+        // Fallback: the original path, byte-for-byte. Used when the
+        // backend has no session endpoint (production today).
+        const safeName = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '-' +
+          file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.[^.]*$/, '.jpg');
+        const fileRef = storageFns.ref(submitStorage, `sell-submissions/${sellPhotoToken}/${safeName}`);
+        await withTimeout(storageFns.uploadBytes(fileRef, compressed), PHOTO_UPLOAD_TIMEOUT_MS);
+        state.url = await withTimeout(storageFns.getDownloadURL(fileRef), PHOTO_UPLOAD_TIMEOUT_MS);
+      }
       console.log('[sell][perf] property photo uploaded in', Math.round(performance.now() - t0) + 'ms:', file.name);
     } catch (err) {
       state.error = err;
@@ -1819,7 +1892,11 @@ function getCurrentPhotoUploadStatus() {
   const entries = files.map(f => photoUploadState.get(f)).filter(Boolean);
   return {
     readyUrls: entries.filter(e => e.url).map(e => e.url),
-    pendingPromises: entries.filter(e => !e.url && !e.error).map(e => e.promise)
+    // SEC-2 uploads carry a path instead of a download url. Both
+    // shapes travel during the transition so admin.html can render
+    // whichever a given submission actually has.
+    readyPaths: entries.filter(e => e.path).map(e => e.path),
+    pendingPromises: entries.filter(e => !e.url && !e.path && !e.error).map(e => e.promise)
   };
 }
 
@@ -2014,11 +2091,42 @@ function startVerificationUpload(blob) {
   verificationUploadPromise = (async () => {
     try {
       await getSubmissionAuthReady();
-      const token = crypto.randomUUID();
-      const path = `sell-verification/${token}/selfie.jpg`;
-      const fileRef = storageFns.ref(submitStorage, path);
-      await withTimeout(storageFns.uploadBytes(fileRef, blob), PHOTO_UPLOAD_TIMEOUT_MS);
-      verificationPhotoPath = path;
+
+      // SEC-2. A selfie gets its OWN session: it is a different kind
+      // with a tighter size cap, and it must not consume a property-
+      // photo slot. A retake requests a fresh session, so create-only
+      // is never violated by the user simply retaking the picture --
+      // the server issues a new token and therefore a new path.
+      let session = null;
+      try {
+        const api = await import('./js/backend-api.js');
+        session = await api.requestUploadSession('verification-selfie', 1);
+        if (session && session.uploads && session.uploads.length) {
+          const slot = session.uploads[0];
+          await withTimeout(api.putToSignedUrl(slot, blob), PHOTO_UPLOAD_TIMEOUT_MS);
+          await withTimeout(api.completeUpload(session.sessionId, slot.path), PHOTO_UPLOAD_TIMEOUT_MS);
+          verificationPhotoPath = slot.path;
+        } else {
+          session = null;
+        }
+      } catch (err) {
+        // As with property photos: a 503 must not degrade to an
+        // unsigned write. Rethrown into the existing catch below,
+        // which surfaces "upload failed -- will retry when you
+        // submit".
+        console.error('[sell] verification upload session failed', err);
+        throw err;
+      }
+
+      if (!session) {
+        // Fallback: the original path, byte-for-byte, used when this
+        // deployment has no session endpoint.
+        const token = crypto.randomUUID();
+        const path = `sell-verification/${token}/selfie.jpg`;
+        const fileRef = storageFns.ref(submitStorage, path);
+        await withTimeout(storageFns.uploadBytes(fileRef, blob), PHOTO_UPLOAD_TIMEOUT_MS);
+        verificationPhotoPath = path;
+      }
       console.log('[sell][perf] verification photo uploaded in', Math.round(performance.now() - t0) + 'ms');
     } catch (err) {
       verificationUploadError = err;
@@ -2438,7 +2546,7 @@ document.getElementById('sellForm').addEventListener('submit', async function (e
     // via attachVerificationPhoto() (AUTHZ-02) -- not as a plain field on
     // this document, which anyone who could reach this doc's ID could
     // otherwise overwrite with an unrelated path.
-    photoUrls: photoStatus.readyUrls, photoUploadToken: sellPhotoToken,
+    photoUrls: photoStatus.readyUrls, photoPaths: photoStatus.readyPaths, photoUploadToken: sellPhotoToken,
     status: 'pending', createdAt: submitFns.serverTimestamp()
   };
 
@@ -2460,6 +2568,51 @@ document.getElementById('sellForm').addEventListener('submit', async function (e
     } catch (err) {
       console.error('[sell] could not attach verification photo path', err);
     }
+  }
+
+  // SEC-2 FAIL-CLOSED GATE.
+  //
+  // Before this, a failed upload produced a SUCCESSFUL submission with
+  // no photos and no identity selfie: readyUrls came back empty, the
+  // selfie path stayed null, attachVerificationPhoto() was skipped, and
+  // the guest saw the confirmation screen. The console line further
+  // down still says "listing was already submitted successfully without
+  // it", which is exactly the behaviour being removed here.
+  //
+  // That is the worst shape this form can produce -- a record that
+  // looks complete to the seller and is unverifiable to staff. A
+  // monitoring alarm cannot fix it, because by the time an alarm fires
+  // the submission already exists and the seller has already been told
+  // they are done.
+  //
+  // So the identity selfie is now a HARD precondition: no verified
+  // selfie, no submission. The user is told plainly and can retry,
+  // which is a recoverable failure instead of a silent one.
+  //
+  // Property photos are deliberately NOT hard-gated the same way: a
+  // land listing with zero photos is legitimate, and the form has
+  // always allowed it. What is gated is a photo that was SELECTED and
+  // then failed -- silently dropping something the seller chose is the
+  // same class of lie, even though the consequence is smaller.
+  const verifyFailed = !verificationPhotoPath || !!verificationUploadError;
+  const failedPhotos = [...photoUpload.files]
+    .map(f => photoUploadState.get(f))
+    .filter(st => st && st.error && !st.url && !st.path).length;
+  if (verifyFailed || failedPhotos > 0) {
+    const msg = verifyFailed
+      ? tr('sell.verify.required',
+           'Your identity photo could not be uploaded, so this listing was not submitted. Please retake it and try again.')
+      : tr('sell.photos.failed',
+           'Some of your photos could not be uploaded, so this listing was not submitted. Please try again.');
+    errEl.textContent = msg;
+    errEl.classList.remove('hidden');
+    errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    submitBtn.disabled = false;
+    submitBtnLabel.textContent = originalLabel;
+    submissionInFlight = false;
+    console.error('[sell] submission blocked: incomplete uploads',
+      { verifyFailed, failedPhotos });
+    return;
   }
 
   let newDocRef;

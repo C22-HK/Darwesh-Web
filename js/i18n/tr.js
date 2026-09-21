@@ -635,6 +635,8 @@ window.__DARWESH_I18N__.tr = {
     'sell.submitForVerification': 'Doğrulamaya Gönder',
     'sell.reviewNote': 'Bir Darwesh Group temsilcisi ilanınızı inceleyecek ve en kısa sürede sizinle iletişime geçecektir.',
     'sell.submitError': 'İlanınız gönderilemedi — lütfen internet bağlantınızı kontrol edip tekrar deneyin.',
+    'sell.verify.required': 'Kimlik fotoğrafınız yüklenemedi, bu nedenle ilan gönderilmedi. Lütfen yeniden çekip tekrar deneyin.',
+    'sell.photos.failed': 'Bazı fotoğraflarınız yüklenemedi, bu nedenle ilan gönderilmedi. Lütfen tekrar deneyin.',
     'sell.submitErrorReload': 'İlanınız gönderilemedi — lütfen sayfayı yenileyip tekrar deneyin.',
     'sell.listingSubmitted': 'İlan Gönderildi',
     'sell.confirmationBody': 'Teşekkür ederiz. Bir Darwesh Group temsilcisi bilgilerinizi doğrulayacak; fotoğraf çekimini planlamak ve ilanınızı tamamlamak üzere en kısa sürede sizinle iletişime geçecektir.',

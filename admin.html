@@ -4046,12 +4046,48 @@ function openRequestDetail(id) {
 
   const photosWrap = document.getElementById('requestDetailPhotos');
   const photoUrls = Array.isArray(s.photoUrls) ? s.photoUrls.filter(isSafeHttpUrl) : [];
-  if (photoUrls.length) {
+  // SEC-2. A submission uploaded through a server-issued session
+  // carries PATHS, not urls -- deliberately, because a Firebase
+  // download url is a permanent bearer capability that no Storage
+  // Rules change can revoke. Those paths are exchanged here, one at a
+  // time, for a signed url that expires in minutes.
+  //
+  // Both shapes are handled because both exist during the migration:
+  // submissions created before the cutover have photoUrls and no
+  // photoPaths, and there is no backfill. Neither is preferred over
+  // the other -- whichever a given submission actually has is what
+  // gets rendered.
+  const photoPaths = Array.isArray(s.photoPaths) ? s.photoPaths.filter(p => typeof p === 'string' && p) : [];
+  if (photoUrls.length || photoPaths.length) {
     photosWrap.classList.remove('hidden');
     photosWrap.innerHTML = photoUrls.map(url => `
       <a href="${escapeAdmin(url)}" target="_blank" rel="noopener" class="block aspect-square rounded-lg overflow-hidden border border-outline-variant bg-surface-container-low">
         <img src="${escapeAdmin(url)}" class="w-full h-full object-cover" decoding="async"/>
       </a>`).join('');
+    if (photoPaths.length) {
+      const holder = document.createElement('div');
+      holder.className = 'contents';
+      photosWrap.appendChild(holder);
+      (async () => {
+        const { sellReviewUrl } = await import('./js/backend-api.js');
+        for (const path of photoPaths) {
+          try {
+            const url = await sellReviewUrl(auth.currentUser, s.id, path);
+            if (!url || !isSafeHttpUrl(url)) continue;
+            const a = document.createElement('a');
+            a.href = url; a.target = '_blank'; a.rel = 'noopener';
+            a.className = 'block aspect-square rounded-lg overflow-hidden border border-outline-variant bg-surface-container-low';
+            const img = document.createElement('img');
+            img.src = url; img.className = 'w-full h-full object-cover'; img.decoding = 'async';
+            a.appendChild(img); holder.appendChild(a);
+          } catch (err) {
+            // One unreadable photo must not blank the whole review
+            // panel -- the rest of the submission is still reviewable.
+            console.error('[admin] could not mint a review url', err);
+          }
+        }
+      })();
+    }
   } else {
     photosWrap.classList.add('hidden');
     photosWrap.innerHTML = '';

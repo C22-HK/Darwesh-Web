@@ -905,3 +905,100 @@ export function previewBrokeragePolicyMatches(user, { accountType, city, percent
     body: { accountType, city, percent, startAt, endAt, excludePolicyId, limit },
   });
 }
+
+// ---- SEC-2: server-issued guest upload sessions --------------------------
+//
+// The Sell form has no login and must keep having none. Until SEC-2 it
+// uploaded straight to Storage with a client-chosen path, which meant
+// anyone who learned a submission token could overwrite that
+// submitter's property photos -- or their identity selfie, whose
+// filename is fixed and fully predictable.
+//
+// These two calls replace that with a capability the SERVER issues:
+// it picks the token, it picks every object path, and it hands back a
+// V4 signed PUT url per object, bound to that exact path, that exact
+// content type, a short expiry, and a create-only precondition.
+//
+// FEATURE DETECTION IS THE POINT, NOT A CONVENIENCE.
+// requestUploadSession() returns null when the backend has no such
+// route -- which is the case in production right now and stays the
+// case until SELL_UPLOAD_BUCKET is configured. A null answer means
+// "use the existing SDK upload path", so one build of sell.html works
+// correctly both before and after that switch is flipped. That is what
+// makes the cutover safe for visitors running a cached copy of the
+// page, and it is why this returns null rather than throwing.
+//
+// A null is returned ONLY for "this deployment has no session
+// endpoint" (404) or "the backend is unreachable". A 503 -- signing
+// configured but broken -- deliberately throws instead: falling back
+// to the unsigned path there would silently reopen the hole at exactly
+// the moment something is already wrong.
+export async function requestUploadSession(kind, count) {
+  let response;
+  try {
+    response = await fetch(BACKEND_BASE_URL + '/api/v1/sell/upload-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind, count })
+    });
+  } catch {
+    return null; // unreachable backend -- fall back, same as today
+  }
+  if (response.status === 404) return null; // feature not enabled here
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    return null;
+  }
+  if (!response.ok) {
+    throw new BackendResponseError(response.status, (data && data.error) || 'Upload unavailable.');
+  }
+  return data;
+}
+
+// Uploads one object to its signed url.
+//
+// Every header the server returned must be sent verbatim: they are
+// part of the signature, so altering or omitting one is a 403 rather
+// than a quietly weaker upload. x-goog-if-generation-match: 0 is the
+// create-only precondition -- GCS itself refuses the write if the
+// object already exists, which is what makes overwrite impossible
+// rather than merely discouraged.
+export async function putToSignedUrl(upload, blob) {
+  const response = await fetch(upload.url, {
+    method: 'PUT',
+    headers: upload.headers,
+    body: blob
+  });
+  if (!response.ok) {
+    throw new BackendResponseError(response.status, 'Upload was refused.');
+  }
+}
+
+// Tells the backend an object landed, so it can verify what ACTUALLY
+// arrived -- real byte size, real leading bytes, real generation -- and
+// either accept it or delete it. A signed url cannot carry a size cap
+// or prove the bytes are really an image, so nothing downstream may
+// reference an object until this has returned.
+export async function completeUpload(sessionId, path) {
+  return postJson('/api/v1/sell/upload-session/complete', { sessionId, path });
+}
+
+// Staff-only. Exchanges a Sell object PATH for a short-lived signed
+// GET url.
+//
+// This is what lets submissions stop carrying permanent Firebase
+// download urls. A download url is a bearer capability that no
+// Storage Rules change can revoke -- once it leaks, the object is
+// public for ever. A review url expires in minutes.
+export async function sellReviewUrl(user, submissionId, path) {
+  // submissionId is not decoration: the backend authorizes per
+  // SUBMISSION, exactly as firestore.rules does (admin, or the
+  // submission's own owner), and then checks the object actually
+  // belongs to it. A path alone is not a capability and is refused.
+  const data = await authedRequest(user, 'POST', '/api/v1/sell/review-url', {
+    body: { submissionId, path }
+  });
+  return data && data.url;
+}
