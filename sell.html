@@ -2075,6 +2075,12 @@ const VERIFY_MAX_DIMENSION = 800; // a face-verification selfie doesn't need 160
 let verificationPhotoPath = null;
 let verificationUploadError = null;
 let verificationUploadPromise = null;
+// The selfie's upload session id, kept because finalization needs it:
+// the backend proves the caller really ran this submission's identity
+// upload by checking that THIS session accepted the exact object the
+// submission's verification record names. Null on the fallback (SDK)
+// path, which is what tells the submit handler a draft is not possible.
+let verificationSessionId = null;
 
 function updateVerifyUploadStatusUI() {
   const el = document.getElementById('verifyUploadStatus');
@@ -2086,6 +2092,7 @@ function updateVerifyUploadStatusUI() {
 function startVerificationUpload(blob) {
   verificationPhotoPath = null;
   verificationUploadError = null;
+  verificationSessionId = null;
   updateVerifyUploadStatusUI();
   const t0 = performance.now();
   verificationUploadPromise = (async () => {
@@ -2106,6 +2113,11 @@ function startVerificationUpload(blob) {
           await withTimeout(api.putToSignedUrl(slot, blob), PHOTO_UPLOAD_TIMEOUT_MS);
           await withTimeout(api.completeUpload(session.sessionId, slot.path), PHOTO_UPLOAD_TIMEOUT_MS);
           verificationPhotoPath = slot.path;
+          // Recorded only after completion succeeded. A session id for
+          // an upload the server never accepted would fail
+          // finalization anyway, but holding one would make the submit
+          // handler believe a draft is possible when it is not.
+          verificationSessionId = session.sessionId;
         } else {
           session = null;
         }
@@ -2168,6 +2180,7 @@ document.getElementById('retakeVerificationPhotoBtn').addEventListener('click', 
   verificationPhotoPath = null;
   verificationUploadError = null;
   verificationUploadPromise = null;
+  verificationSessionId = null;
   if (verificationObjectUrl) { URL.revokeObjectURL(verificationObjectUrl); verificationObjectUrl = null; }
   startVerificationCamera();
 });
@@ -2443,6 +2456,12 @@ async function compressImage(file) {
 }
 
 let submissionInFlight = false;
+// A draft this page already created but has not yet had promoted.
+// Retrying after a failed finalization must RE-FINALIZE this one, never
+// create a second draft: a failed finalize leaves a real (if invisible)
+// document behind, and a retry that called addDoc again would leave a
+// trail of orphaned drafts, one per attempt.
+let sellDraftRef = null;
 
 // The submission record is created the moment Submit is clicked, using
 // whatever photo/verification uploads have ALREADY finished by then --
@@ -2514,7 +2533,62 @@ document.getElementById('sellForm').addEventListener('submit', async function (e
   }
   console.log('[sell][perf] Firebase SDK ready at +' + Math.round(performance.now() - tSubmitStart) + 'ms');
 
+  // WHY THE DRAFT PATH WAITS, AND THE LEGACY PATH STILL DOES NOT.
+  //
+  // The legacy flow deliberately never blocks on Storage: it creates
+  // the submission with whatever has finished, and a background patch
+  // fills in the stragglers afterwards. That patch cannot work on a
+  // draft -- firestore.rules makes a draft immutable to every client,
+  // which is the whole point -- so a photo still in flight at this
+  // moment would be dropped from photoPaths and never patched back in.
+  // That is precisely the silent, incomplete-but-successful submission
+  // this change exists to eliminate, so on the draft path the stragglers
+  // are waited for instead. Each upload is already bounded by
+  // withTimeout, so this cannot hang, and uploads start as soon as a
+  // photo is added, so there is normally nothing left to wait for.
+  if (verificationSessionId) {
+    const inFlight = getCurrentPhotoUploadStatus().pendingPromises;
+    if (inFlight.length) {
+      submitBtnLabel.textContent = tr('sell.finishingUploads', 'Finishing photo uploads...');
+      await Promise.all(inFlight);
+    }
+  }
+
+  // Read AFTER that wait, so it reflects the settled state. Any upload
+  // that failed while we waited is caught by the fail-closed gate below.
   const photoStatus = getCurrentPhotoUploadStatus();
+
+  // SERVER-AUTHORITATIVE FINALIZATION: when, and why not always.
+  //
+  // A submission created as `draft` is invisible to staff until the
+  // backend promotes it, and ONLY the backend can. That is the real
+  // boundary the client-side gate below could never be. But a draft
+  // nothing can promote is worse than no draft at all -- it is a
+  // listing the seller believes they submitted and no one will ever
+  // see. So the draft state is used only when every input the backend
+  // needs is genuinely in hand:
+  //
+  //   * the selfie went through an upload session -- its id is what
+  //     proves possession to the backend, and having one also proves
+  //     this deployment HAS the endpoints at all, and
+  //   * no property photo took the legacy SDK path, which produces a
+  //     download url the backend cannot verify. That happens when a
+  //     seller selects more than SELL_SESSION_SLOTS photos and the
+  //     later ones exhaust the session -- a mixed submission then
+  //     behaves exactly as it does today. Documented in
+  //     docs/SEC2_CUTOVER.md as a gap Stage C must close.
+  //
+  // Deliberately NOT conditioned on a property-photo session existing:
+  // a listing with no photos at all (a land listing) never requests
+  // one, and it is precisely the case that most needs finalization --
+  // it has nothing but the identity selfie to vouch for it. The backend
+  // takes a null sessionId and then requires that no photos are claimed.
+  //
+  // Otherwise this is byte-for-byte the pre-existing flow: create as
+  // `pending`, which firestore.rules still accepts precisely so that
+  // cached copies of this page keep working.
+  const useServerFinalization = !!(verificationSessionId && photoStatus.readyUrls.length === 0);
+
   const type = document.getElementById('typeSelect');
   const typeLabel = type.selectedOptions[0] ? type.selectedOptions[0].textContent : '';
   const dealLabel = draft.listingTypeSelect === 'rent' ? 'for Rent' : 'for Sale';
@@ -2547,7 +2621,7 @@ document.getElementById('sellForm').addEventListener('submit', async function (e
     // this document, which anyone who could reach this doc's ID could
     // otherwise overwrite with an unrelated path.
     photoUrls: photoStatus.readyUrls, photoPaths: photoStatus.readyPaths, photoUploadToken: sellPhotoToken,
-    status: 'pending', createdAt: submitFns.serverTimestamp()
+    status: useServerFinalization ? 'draft' : 'pending', createdAt: submitFns.serverTimestamp()
   };
 
   // AUTHZ-02 fix: the verification photo's Storage path is written into
@@ -2559,7 +2633,14 @@ document.getElementById('sellForm').addEventListener('submit', async function (e
   // a path segment, so this is airtight against the identity-confusion
   // attack the plain-field version had (an unrelated party could not
   // patch verificationPhotoPath without already knowing the real token).
-  async function attachVerificationPhoto(path) {
+  //
+  // `strict` exists for the draft path. There, this record is not a
+  // nice-to-have: the backend refuses to finalize without it, because
+  // it is the only thing binding an anonymous caller to this particular
+  // submission. Swallowing a failure here would leave a draft that can
+  // never be promoted, so on the draft path the error is rethrown and
+  // the submission is reported as failed.
+  async function attachVerificationPhoto(path, { strict = false } = {}) {
     try {
       await submitFns.setDoc(
         submitFns.doc(submitDb, 'submissions', newDocRef.id, 'verification', sellPhotoToken),
@@ -2567,6 +2648,7 @@ document.getElementById('sellForm').addEventListener('submit', async function (e
       );
     } catch (err) {
       console.error('[sell] could not attach verification photo path', err);
+      if (strict) throw err;
     }
   }
 
@@ -2618,7 +2700,12 @@ document.getElementById('sellForm').addEventListener('submit', async function (e
   let newDocRef;
   try {
     const tCreate = performance.now();
-    newDocRef = await submitFns.addDoc(submitFns.collection(submitDb, 'submissions'), payload);
+    // Reuse the draft from a previous attempt whose finalization
+    // failed, rather than creating another one.
+    newDocRef = (useServerFinalization && sellDraftRef)
+      ? sellDraftRef
+      : await submitFns.addDoc(submitFns.collection(submitDb, 'submissions'), payload);
+    if (useServerFinalization) sellDraftRef = newDocRef;
     console.log('[sell][perf] Firestore create took ' + Math.round(performance.now() - tCreate) + 'ms');
   } catch (err) {
     console.error('Could not save submission:', err);
@@ -2630,10 +2717,49 @@ document.getElementById('sellForm').addEventListener('submit', async function (e
     submissionInFlight = false;
     return;
   }
+
+  if (useServerFinalization) {
+    // The draft exists and is invisible to staff. Until this block
+    // succeeds, NOTHING has been submitted -- so no confirmation
+    // screen, no draft cleared, and any failure is reported as a
+    // failed submission, which is exactly the honesty the draft state
+    // was introduced to provide.
+    try {
+      // Awaited, and fatal on failure: the backend reads this record
+      // to decide whether the caller really ran this submission's
+      // identity upload.
+      await attachVerificationPhoto(verificationPhotoPath, { strict: true });
+      const api = await import('./js/backend-api.js');
+      await api.finalizeSubmission(
+        newDocRef.id,
+        // Null only when no session was ever requested, i.e. this
+        // listing has no property photos at all -- legitimate, and
+        // always has been. Sent whenever a session EXISTS, even if it
+        // produced no usable paths, so the backend also gets to check
+        // that none of its slots was rejected. Deciding that here from
+        // readyPaths would let a client hide a failed photo by simply
+        // not mentioning the session.
+        sellUploadSession ? sellUploadSession.sessionId : null,
+        verificationSessionId
+      );
+    } catch (err) {
+      console.error('[sell] finalization failed; submission NOT completed', err);
+      errEl.textContent = tr('sell.finalizeFailed',
+        'Your listing could not be submitted. Please check your connection and try again.');
+      errEl.classList.remove('hidden');
+      errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      submitBtn.disabled = false;
+      submitBtnLabel.textContent = originalLabel;
+      submissionInFlight = false;
+      return;
+    }
+  }
   console.log('[sell][perf] total time to success: ' + Math.round(performance.now() - tSubmitStart) + 'ms');
 
-  if (verificationPhotoPath) attachVerificationPhoto(verificationPhotoPath);
+  // Already written, and awaited, on the finalization path above.
+  if (!useServerFinalization && verificationPhotoPath) attachVerificationPhoto(verificationPhotoPath);
 
+  sellDraftRef = null;
   localStorage.removeItem(DRAFT_KEY);
   document.getElementById('sellForm').classList.add('hidden');
   document.getElementById('confirmation').classList.remove('hidden');
@@ -2643,7 +2769,11 @@ document.getElementById('sellForm').addEventListener('submit', async function (e
   // background and patches the doc just created, once it settles -- the
   // listing itself never waited on it. Skipped entirely when every upload
   // had already finished by submit time, which is the normal case.
-  const stillPending = [...photoStatus.pendingPromises];
+  // Empty by construction on the draft path -- it waited above, and a
+  // draft cannot be patched anyway. Guarded rather than assumed: if
+  // this ever ran against a promoted submission it would rewrite
+  // photoUrls the backend deliberately verified as absent.
+  const stillPending = useServerFinalization ? [] : [...photoStatus.pendingPromises];
   // "Upload failed -- will retry when you submit" (updateVerifyUploadStatusUI)
   // was a promise the code never actually kept: verificationUploadPromise
   // always RESOLVES (its own try/catch only ever sets

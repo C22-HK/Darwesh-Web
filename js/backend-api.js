@@ -985,6 +985,44 @@ export async function completeUpload(sessionId, path) {
   return postJson('/api/v1/sell/upload-session/complete', { sessionId, path });
 }
 
+// Asks the backend to promote a draft submission to `pending`.
+//
+// This is the one call in the Sell flow whose FAILURE must be treated
+// as a failed submission. Everything else in this file degrades: a
+// missing upload-session endpoint means "use the SDK path", an
+// unreachable backend means "fall back". Not this. A draft that is
+// never finalized is invisible to staff, so reporting success would be
+// telling the seller their listing was submitted when nothing will ever
+// look at it -- precisely the silent failure the draft state exists to
+// eliminate. So this THROWS on every non-2xx, including 404, and the
+// caller must surface it.
+//
+// sessionId is optional and omitted for a listing with no property
+// photos, which sell.html has always permitted.
+export async function finalizeSubmission(submissionId, sessionId, verificationSessionId) {
+  const body = { verificationSessionId };
+  if (sessionId) body.sessionId = sessionId;
+  let response;
+  try {
+    response = await fetch(
+      BACKEND_BASE_URL + '/api/v1/sell/submissions/' + encodeURIComponent(submissionId) + '/finalize',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    );
+  } catch (err) {
+    throw new BackendResponseError(0, 'Could not reach the server.');
+  }
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+  if (!response.ok) {
+    throw new BackendResponseError(response.status, (data && data.error) || 'Your listing could not be submitted.');
+  }
+  return data;
+}
+
 // Staff-only. Exchanges a Sell object PATH for a short-lived signed
 // GET url.
 //

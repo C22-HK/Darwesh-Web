@@ -3700,10 +3700,20 @@ async function resolveSaleReport(action) {
 document.getElementById('saleReportConfirm').addEventListener('click', () => resolveSaleReport('confirm'));
 document.getElementById('saleReportClarify').addEventListener('click', () => resolveSaleReport('clarify'));
 
+// A 'draft' submission is one the backend has NOT finalized: either its
+// uploads never completed, or the seller closed the tab mid-submission.
+// It is not a customer request and must never be counted or listed as
+// one -- the whole point of the draft state is that a failed submission
+// stops looking complete to staff (see backend/app/sell/finalize.py).
+// Drafts are dropped here, at the one place every Services view and
+// every dashboard count reads from, rather than at each call site.
+// Observability for drafts belongs to monitoring, not to this table.
+function isReviewableSubmission(s) { return s && s.status !== 'draft'; }
+
 async function renderServicesTab() {
   const snap = await getDocs(collection(db, 'submissions'));
   allSubmissionsCache = [];
-  snap.forEach(d => allSubmissionsCache.push({ id: d.id, ...d.data() }));
+  snap.forEach(d => { const s = { id: d.id, ...d.data() }; if (isReviewableSubmission(s)) allSubmissionsCache.push(s); });
   allSubmissionsCache.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
   document.getElementById('statTotalRequests').textContent = allSubmissionsCache.length;
@@ -4433,7 +4443,10 @@ async function fetchDashboardData() {
     getDocs(collection(db, 'users'))
   ]);
   const listings = []; listingsSnap.forEach(d => listings.push({ id: d.id, ...d.data() }));
-  const submissions = []; submissionsSnap.forEach(d => submissions.push({ id: d.id, ...d.data() }));
+  // Same draft filter as renderServicesTab -- an unfinalized draft is
+  // not a request, so it must not reach "Needs attention" or any count.
+  const submissions = [];
+  submissionsSnap.forEach(d => { const s = { id: d.id, ...d.data() }; if (isReviewableSubmission(s)) submissions.push(s); });
   const orgsForAttention = []; orgsSnap.forEach(d => orgsForAttention.push(d.data()));
   const projectsForAttention = []; projectsSnap.forEach(d => projectsForAttention.push(d.data()));
   let agentCount = 0;

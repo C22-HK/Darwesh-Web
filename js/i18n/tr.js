@@ -637,6 +637,8 @@ window.__DARWESH_I18N__.tr = {
     'sell.submitError': 'İlanınız gönderilemedi — lütfen internet bağlantınızı kontrol edip tekrar deneyin.',
     'sell.verify.required': 'Kimlik fotoğrafınız yüklenemedi, bu nedenle ilan gönderilmedi. Lütfen yeniden çekip tekrar deneyin.',
     'sell.photos.failed': 'Bazı fotoğraflarınız yüklenemedi, bu nedenle ilan gönderilmedi. Lütfen tekrar deneyin.',
+    'sell.finalizeFailed': 'İlanınız gönderilemedi. Lütfen bağlantınızı kontrol edip tekrar deneyin.',
+    'sell.finishingUploads': 'Fotoğraf yüklemeleri tamamlanıyor...',
     'sell.submitErrorReload': 'İlanınız gönderilemedi — lütfen sayfayı yenileyip tekrar deneyin.',
     'sell.listingSubmitted': 'İlan Gönderildi',
     'sell.confirmationBody': 'Teşekkür ederiz. Bir Darwesh Group temsilcisi bilgilerinizi doğrulayacak; fotoğraf çekimini planlamak ve ilanınızı tamamlamak üzere en kısa sürede sizinle iletişime geçecektir.',
