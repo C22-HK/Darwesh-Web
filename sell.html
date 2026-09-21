@@ -1789,52 +1789,119 @@ let sellPhotoToken = crypto.randomUUID();
 
 // ---- SEC-2: server-issued upload session (with fallback) ----------------
 //
-// One session per page load, requested lazily on the first upload and
-// holding a slot per photo. The SERVER chooses the submission token
-// and every object path; this page only picks which free slot to use
-// next.
+// Sessions are requested lazily, on the first upload that needs a
+// slot. The SERVER chooses the submission token and every object path;
+// this page only picks which free slot to use next.
 //
-// sellUploadSession stays null when the backend has no session
-// endpoint -- which is the case in production today and remains so
-// until SELL_UPLOAD_BUCKET is configured. Everything below then falls
-// back to the original SDK upload path, unchanged. That is deliberate:
-// ONE build of this page has to behave correctly both before and after
-// that switch is flipped, because visitors run whatever copy their
-// browser cached. See docs/SEC2_CUTOVER.md.
-const SELL_SESSION_SLOTS = 20; // matches backend app/sell/limits.py
-let sellUploadSession = null;
-let sellUploadSessionTried = false;
-let sellUploadSlotCursor = 0;
+// THE ONE PERMITTED FALLBACK, AND ITS EXACT BOUNDARY
+//
+// When this deployment has no session endpoint at all -- a 404, which
+// is production today and stays so until SELL_UPLOAD_BUCKET is set --
+// uploads use the original SDK path, unchanged. ONE build of this page
+// has to behave correctly both before and after that switch is
+// flipped, because visitors run whatever copy their browser cached.
+//
+// That is the ONLY fallback. Once a session has been issued
+// successfully, secureUploadsActive latches true and nothing below can
+// return to the SDK path: not a later 404, not a 503, not a network
+// failure, and not running out of slots. Each of those throws, the
+// upload is marked failed, and the fail-closed gate at submit time
+// stops the listing. Slot exhaustion in particular used to fall back
+// silently -- a seller with more than SELL_SESSION_SLOTS photos got
+// unsigned uploads for the remainder -- and that bypass is what this
+// structure removes. See docs/SEC2_CUTOVER.md.
+// THE PHOTO LIMIT. Must equal MAX_PHOTOS_PER_SESSION in
+// backend/app/sell/limits.py; backend/tests/test_sell_limits_agree.py
+// reads this very line and fails if the two drift. A silently-larger
+// client limit is how an insecure fallback gets reintroduced -- the
+// extra photos find no slot, and whatever happens next is outside
+// everything SEC-2 checks.
+const SELL_SESSION_SLOTS = 20;
+const MAX_SELL_PHOTOS = SELL_SESSION_SLOTS;
+// How many sessions one page load may mint. Not a second photo limit:
+// this bounds CHURN. Re-picking twenty photos needs twenty more slots,
+// because a slot whose object may already exist can never be reissued
+// (create-only). Mirrors MAX_UPLOAD_SESSIONS_PER_SUBMISSION.
+const MAX_SELL_UPLOAD_SESSIONS = 5;
+// The expiry a draft declares for itself. Shorter than the backend's
+// own floor (DRAFT_TTL_SECONDS, 48h) on purpose: the sweep takes the
+// EARLIER of the two, so this can only ever bring cleanup forward.
+const DRAFT_DECLARED_TTL_MS = 24 * 60 * 60 * 1000;
 
-async function ensureUploadSession() {
-  if (sellUploadSessionTried) return sellUploadSession;
-  sellUploadSessionTried = true;
+// Every session minted this page load, in order. The FIRST one's token
+// becomes the submission's photoUploadToken, which is why order is
+// preserved all the way to the finalize call.
+let sellUploadSessions = [];
+// Slots handed out by those sessions and not yet spent.
+let sellUploadSlotQueue = [];
+// null = not yet known; true = this deployment issues sessions;
+// false = it does not (404), so the legacy SDK path is correct here.
+//
+// Once true this NEVER goes back to false. A later 404 or network
+// failure must not silently downgrade an upload to the unsigned path:
+// that is the exact hole SEC-2 closes, and reopening it at the moment
+// something is already wrong is the worst available failure mode.
+let secureUploadsActive = null;
+
+class SecureUploadUnavailable extends Error {}
+
+// Returns a slot, or null ONLY when this deployment has no session
+// endpoint at all (the dark-rollout case). Throws in every other
+// failure, so the caller fails closed rather than falling back.
+async function takeUploadSlot() {
+  if (sellUploadSlotQueue.length) return sellUploadSlotQueue.shift();
+  if (secureUploadsActive === false) return null;
+
+  if (sellUploadSessions.length >= MAX_SELL_UPLOAD_SESSIONS) {
+    throw new SecureUploadUnavailable('upload slots exhausted for this page load');
+  }
+
+  const api = await import('./js/backend-api.js');
+  let session;
   try {
-    const api = await import('./js/backend-api.js');
-    sellUploadSession = await api.requestUploadSession('property-photo', SELL_SESSION_SLOTS);
-    if (sellUploadSession && sellUploadSession.submissionToken) {
-      // The server's token replaces the client-generated one, so the
-      // submission document and the objects agree on one identifier --
-      // and it is one this page did not choose.
-      sellPhotoToken = sellUploadSession.submissionToken;
-    }
+    // An overflow session is CHAINED to the first one, so the server
+    // records every object under a single lineage. Without that, draft
+    // cleanup cannot tell an overflow photo of this submission from an
+    // object belonging to somebody else, and would refuse to remove
+    // it. Chaining requires possession of the parent session id, which
+    // this page holds and nobody else does.
+    const parent = sellUploadSessions.length ? sellUploadSessions[0].sessionId : null;
+    session = await api.requestUploadSession('property-photo', SELL_SESSION_SLOTS, parent);
   } catch (err) {
-    // A 503 (signing configured but broken) lands here. Do NOT fall
-    // back: an unsigned write is exactly the hole SEC-2 closes, and
-    // reopening it when something is already wrong is the worst
-    // possible moment. The upload fails and the user retries.
+    // A 503 (signing configured but broken) lands here.
     console.error('[sell] upload session unavailable', err);
-    sellUploadSession = null;
     throw err;
   }
-  return sellUploadSession;
+
+  if (!session) {
+    // 404 or an unreachable backend. Only a legitimate answer while we
+    // have never successfully used a session -- see secureUploadsActive.
+    if (secureUploadsActive === true) {
+      throw new SecureUploadUnavailable('secure uploads are active but a session could not be minted');
+    }
+    secureUploadsActive = false;
+    return null;
+  }
+
+  secureUploadsActive = true;
+  sellUploadSessions.push(session);
+  if (sellUploadSessions.length === 1 && session.submissionToken) {
+    // The server's token replaces the client-generated one, so the
+    // submission document and the objects agree on one identifier --
+    // and it is one this page did not choose. Only the first: later
+    // sessions are overflow and carry tokens of their own.
+    sellPhotoToken = session.submissionToken;
+  }
+  // Each slot carries the id of the session that issued it. With more
+  // than one session in play, completeUpload() must be told the RIGHT
+  // one -- the server checks the path really belongs to that session,
+  // so guessing would simply be refused.
+  sellUploadSlotQueue = (session.uploads || []).map(u => ({ ...u, sessionId: session.sessionId }));
+  return sellUploadSlotQueue.shift() || null;
 }
 
-function takeUploadSlot() {
-  if (!sellUploadSession) return null;
-  const uploads = sellUploadSession.uploads || [];
-  if (sellUploadSlotCursor >= uploads.length) return null;
-  return uploads[sellUploadSlotCursor++];
+function sellUploadSessionIds() {
+  return sellUploadSessions.map(s => s.sessionId);
 }
 
 function ensurePhotoUploadStarted(file) {
@@ -1847,8 +1914,7 @@ function ensurePhotoUploadStarted(file) {
       await getSubmissionAuthReady();
       const compressed = await compressImage(file);
 
-      const session = await ensureUploadSession();
-      const slot = session ? takeUploadSlot() : null;
+      const slot = await takeUploadSlot();
       if (slot) {
         // SEC-2 path. The url is signed for this exact object, this
         // exact content type, a short expiry and create-only; the
@@ -1859,13 +1925,17 @@ function ensurePhotoUploadStarted(file) {
         // back what actually landed -- real size, real leading bytes,
         // real generation. A signed url cannot carry a size cap or
         // prove the bytes are an image.
-        await withTimeout(api.completeUpload(session.sessionId, slot.path), PHOTO_UPLOAD_TIMEOUT_MS);
+        await withTimeout(api.completeUpload(slot.sessionId, slot.path), PHOTO_UPLOAD_TIMEOUT_MS);
         // The PATH, not a download url. A download url is a permanent
         // bearer capability that no Storage Rules change can revoke,
         // which is why storing them is what made a leaked url as good
         // as public access.
         state.path = slot.path;
       } else {
+        // Reached ONLY when this deployment has no session endpoint --
+        // takeUploadSlot() throws in every other failure rather than
+        // returning null, so there is no path from "secure uploads are
+        // active" to this branch.
         // Fallback: the original path, byte-for-byte. Used when the
         // backend has no session endpoint (production today).
         const safeName = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '-' +
@@ -1974,11 +2044,34 @@ function renderPhotoPreviews() {
   });
 }
 
+// THE PHOTO LIMIT, enforced where the selection is made.
+//
+// The server enforces the same number independently -- new_session()
+// refuses a larger count outright -- so this half is the explanation,
+// not the control. It exists because the alternative is silent: extra
+// photos would find no slot, and the seller would discover the problem
+// only when the submission failed, with no idea which photos were the
+// problem or why.
+//
+// Trimmed rather than rejected wholesale: keeping the first
+// MAX_SELL_PHOTOS and saying so plainly leaves the seller with a
+// working selection to adjust, where discarding all of them would make
+// them start over.
+function capPhotoSelection(fileList) {
+  const files = [...fileList];
+  if (files.length <= MAX_SELL_PHOTOS) return files;
+  showStepValidationMsg(
+    tr('sell.photos.tooMany', 'You can add up to {max} photos. The extra ones were not added.')
+      .replace('{max}', MAX_SELL_PHOTOS)
+  );
+  return files.slice(0, MAX_SELL_PHOTOS);
+}
+
 // input.files is read-only, so adding/removing/reordering an existing
 // selection means rebuilding it through a DataTransfer instead.
 function setPhotoFiles(fileList) {
   const dt = new DataTransfer();
-  [...fileList].forEach(f => dt.items.add(f));
+  capPhotoSelection(fileList).forEach(f => dt.items.add(f));
   photoUpload.files = dt.files;
   renderPhotoPreviews();
 }
@@ -1987,7 +2080,16 @@ function removePhoto(index) {
   setPhotoFiles([...photoUpload.files].filter((_, i) => i !== index));
 }
 
-photoUpload.addEventListener('change', renderPhotoPreviews);
+// Routed through setPhotoFiles rather than straight to the renderer, so
+// a selection made through the file picker is capped exactly like one
+// made by dropping files on the dropzone. renderPhotoPreviews() starts
+// an upload for every file it draws, so capping after that point would
+// be too late -- the slots would already be spent.
+photoUpload.addEventListener('change', () => {
+  const files = [...photoUpload.files];
+  if (files.length > MAX_SELL_PHOTOS) setPhotoFiles(files);
+  else renderPhotoPreviews();
+});
 
 ['dragenter', 'dragover'].forEach(evt => {
   dropzone.addEventListener(evt, (e) => {
@@ -2118,6 +2220,10 @@ function startVerificationUpload(blob) {
           // finalization anyway, but holding one would make the submit
           // handler believe a draft is possible when it is not.
           verificationSessionId = session.sessionId;
+          // Same latch the photo path uses, set from whichever runs
+          // first. An identity selfie must never take the unsigned
+          // path once this deployment has shown it can issue sessions.
+          secureUploadsActive = true;
         } else {
           session = null;
         }
@@ -2131,6 +2237,15 @@ function startVerificationUpload(blob) {
       }
 
       if (!session) {
+        if (secureUploadsActive === true) {
+          // A property photo already went through a signed upload on
+          // this page load, so this deployment demonstrably issues
+          // sessions and something has since gone wrong. Falling back
+          // here would put an IDENTITY DOCUMENT on the unsigned path
+          // at exactly the moment the system is misbehaving.
+          throw new SecureUploadUnavailable('secure uploads are active but the selfie session failed');
+        }
+        secureUploadsActive = false;
         // Fallback: the original path, byte-for-byte, used when this
         // deployment has no session endpoint.
         const token = crypto.randomUUID();
@@ -2624,6 +2739,15 @@ document.getElementById('sellForm').addEventListener('submit', async function (e
     status: useServerFinalization ? 'draft' : 'pending', createdAt: submitFns.serverTimestamp()
   };
 
+  // A draft carries its own expiry, so an abandoned one is sweepable
+  // without a rule living only in backend code. firestore.rules caps
+  // how far out this may be set; the sweep itself is floored on
+  // createdAt, a server timestamp this page cannot forge, so declaring
+  // a distant expiry buys nothing. See docs/SEC2_DRAFT_LIFECYCLE.md.
+  if (useServerFinalization) {
+    payload.draftExpiresAt = new Date(Date.now() + DRAFT_DECLARED_TTL_MS);
+  }
+
   // AUTHZ-02 fix: the verification photo's Storage path is written into
   // submissions/{id}/verification/{token} (token == this submission's own
   // photoUploadToken), never as a plain field on the submission doc
@@ -2732,14 +2856,17 @@ document.getElementById('sellForm').addEventListener('submit', async function (e
       const api = await import('./js/backend-api.js');
       await api.finalizeSubmission(
         newDocRef.id,
-        // Null only when no session was ever requested, i.e. this
-        // listing has no property photos at all -- legitimate, and
-        // always has been. Sent whenever a session EXISTS, even if it
-        // produced no usable paths, so the backend also gets to check
-        // that none of its slots was rejected. Deciding that here from
-        // readyPaths would let a client hide a failed photo by simply
-        // not mentioning the session.
-        sellUploadSession ? sellUploadSession.sessionId : null,
+        // EVERY session minted this page load, in order -- the first is
+        // the one whose token the submission adopted. Empty only when
+        // none was ever requested, i.e. this listing has no property
+        // photos at all, which is legitimate and always has been.
+        //
+        // All of them, even ones that produced no usable path, because
+        // the backend also checks that no slot in any of them was
+        // rejected. Filtering this list by what succeeded would let a
+        // client hide a failed photo by simply not mentioning the
+        // session that holds it.
+        sellUploadSessionIds(),
         verificationSessionId
       );
     } catch (err) {

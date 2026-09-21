@@ -933,13 +933,21 @@ export function previewBrokeragePolicyMatches(user, { accountType, city, percent
 // configured but broken -- deliberately throws instead: falling back
 // to the unsigned path there would silently reopen the hole at exactly
 // the moment something is already wrong.
-export async function requestUploadSession(kind, count) {
+// parentSessionId chains an OVERFLOW session to the first one, so the
+// server records every object of a submission under a single lineage.
+// Draft cleanup needs that lineage to tell this submission's objects
+// from a stranger's; without it an overflow photo is unprovable and
+// its draft is left for manual review. Passing it requires holding the
+// parent session id, which is a bearer capability only this page has.
+export async function requestUploadSession(kind, count, parentSessionId) {
+  const payload = { kind, count };
+  if (parentSessionId) payload.parentSessionId = parentSessionId;
   let response;
   try {
     response = await fetch(BACKEND_BASE_URL + '/api/v1/sell/upload-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind, count })
+      body: JSON.stringify(payload)
     });
   } catch {
     return null; // unreachable backend -- fall back, same as today
@@ -997,11 +1005,12 @@ export async function completeUpload(sessionId, path) {
 // eliminate. So this THROWS on every non-2xx, including 404, and the
 // caller must surface it.
 //
-// sessionId is optional and omitted for a listing with no property
-// photos, which sell.html has always permitted.
-export async function finalizeSubmission(submissionId, sessionId, verificationSessionId) {
-  const body = { verificationSessionId };
-  if (sessionId) body.sessionId = sessionId;
+// sessionIds is every photo-upload session this page load minted, in
+// order -- the first is the one whose token the submission adopted. It
+// is empty for a listing with no property photos, which sell.html has
+// always permitted.
+export async function finalizeSubmission(submissionId, sessionIds, verificationSessionId) {
+  const body = { verificationSessionId, sessionIds: sessionIds || [] };
   let response;
   try {
     response = await fetch(
