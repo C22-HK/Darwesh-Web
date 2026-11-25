@@ -145,7 +145,7 @@ violation reporting. -->
       </div>
 
       <p class="font-body-md text-[13px] text-on-surface-variant text-center mt-6">
-        <span data-i18n="auth.noAccount">Don't have an account?</span> <a href="signup.html" class="text-secondary font-medium hover:underline" data-i18n="auth.signUpLink">Sign up</a>
+        <span data-i18n="auth.noAccount">Don't have an account?</span> <a id="signUpLink" href="signup.html" class="text-secondary font-medium hover:underline" data-i18n="auth.signUpLink">Sign up</a>
       </p>
       <a href="index.html" class="block text-center mt-4 font-label-caps text-label-caps text-on-surface-variant hover:text-primary" data-i18n="nav.backToSite">Back to site</a>
     </div>
@@ -161,9 +161,22 @@ violation reporting. -->
   // owner, a developer, a professional or an admin lands on their own page
   // instead of the generic customer page.
   import { resolveProfileDestination } from './js/profile-destination.js';
+  // `?next=` support, for pages that require an account and send guests
+  // here to get one (sell.html). An ALLOWLIST, not a validator -- see
+  // js/safe-next.js for why. An unrecognised value is dropped entirely
+  // and the profile routing below decides, exactly as it always has.
+  import { destinationAfterAuth, nextQuery } from './js/safe-next.js';
 
-  // Already logged in? Skip straight to the right dashboard instead of
-  // showing the login form again.
+  // Carry the destination onward to signup.html, so someone who lands
+  // here from sell.html and decides to create an account instead still
+  // comes back to sell.html. Rebuilt from the RESOLVED route, so a
+  // hostile value cannot survive the hop.
+  const signUpLink = document.getElementById('signUpLink');
+  if (signUpLink) signUpLink.setAttribute('href', 'signup.html' + nextQuery(window.location.search));
+
+  // Already logged in? Skip straight to the right dashboard -- or to
+  // wherever they were headed -- instead of showing the login form
+  // again.
   onAuthStateChanged(auth, async (user) => {
     if (!user) return;
     let profile = null;
@@ -171,7 +184,7 @@ violation reporting. -->
       const snap = await getDoc(doc(db, 'users', user.uid));
       profile = snap.exists() ? snap.data() : null;
     } catch (e) { profile = null; }
-    window.location.href = resolveProfileDestination(profile);
+    window.location.href = destinationAfterAuth(window.location.search, resolveProfileDestination(profile));
   });
 
   const form = document.getElementById('loginForm');
@@ -266,7 +279,11 @@ violation reporting. -->
         // generic account page, which re-reads the profile itself.
         console.error('[login] profile read failed after sign-in', profileErr.code || profileErr.name);
       }
-      window.location.href = resolveProfileDestination(profile);
+      // `next` overrides the profile destination when -- and only when
+      // -- it names a known route. With no `next`, an office owner, an
+      // agent, a professional and an admin all land exactly where they
+      // did before this parameter existed.
+      window.location.href = destinationAfterAuth(window.location.search, resolveProfileDestination(profile));
     } catch (err) {
       // The real error is always captured here (and, once Sentry is
       // configured via js/error-monitor.js, reported) -- only the safe,

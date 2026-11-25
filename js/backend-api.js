@@ -33,6 +33,40 @@ export class BackendResponseError extends Error {
   }
 }
 
+// A signed upload never reached Cloud Storage: the browser refused to
+// send it, or the response was blocked before this code could see it.
+//
+// Its own type, because the remedy is completely different from every
+// other failure in this file. A BackendResponseError means storage
+// answered and said no. This means nothing answered at all, and in
+// practice that has one dominant cause: the upload bucket's CORS
+// configuration does not permit this origin, this method, or one of
+// the two headers the signed PUT is required to send.
+//
+// PRIVACY: carries no url, no query string and no header values. The
+// signed url IS the capability -- it grants a write to a specific
+// customer object -- so it must never reach a log, a console line, an
+// error report or a screenshot. `origin` and `host` are not secrets and
+// are exactly what someone needs to check the bucket configuration.
+export class SignedUploadBlocked extends Error {
+  constructor(cause) {
+    super(
+      'The upload could not reach storage. The request was blocked before it was sent, ' +
+      'which is almost always the storage bucket\'s CORS configuration -- note that a ' +
+      '200 on the OPTIONS preflight does NOT mean CORS is working. ' +
+      'Verify with scripts/sec2-cors-check.sh.'
+    );
+    this.name = 'SignedUploadBlocked';
+    this.host = 'storage.googleapis.com';
+    try {
+      this.origin = window.location.origin;
+    } catch { this.origin = '(unknown)'; }
+    // The underlying TypeError, for a console that wants it. Never
+    // interpolated into the message, which a page may display.
+    this.cause = cause;
+  }
+}
+
 // The backend's `error` strings above are written in English only --
 // every page that showed err.message directly left KU/AR/TR visitors
 // reading raw English for the exact validation errors (wrong/expired
@@ -906,13 +940,19 @@ export function previewBrokeragePolicyMatches(user, { accountType, city, percent
   });
 }
 
-// ---- SEC-2: server-issued guest upload sessions --------------------------
+// ---- SEC-2: server-issued upload sessions --------------------------------
 //
-// The Sell form has no login and must keep having none. Until SEC-2 it
-// uploaded straight to Storage with a client-chosen path, which meant
-// anyone who learned a submission token could overwrite that
-// submitter's property photos -- or their identity selfie, whose
-// filename is fixed and fully predictable.
+// Until SEC-2 the Sell form uploaded straight to Storage with a
+// client-chosen path, which meant anyone who learned a submission token
+// could overwrite that submitter's property photos -- or their identity
+// selfie, whose filename is fixed and fully predictable.
+//
+// ALL THREE OF THESE CALLS NOW SEND A FIREBASE ID TOKEN.
+// Listing a property requires an account. The backend answers 401
+// without one, so `user` is not optional here -- it is the credential.
+// A 401 is NOT feature-detection and must never be read as one; see
+// requestUploadSession's 404 handling below for the one status that
+// is.
 //
 // These two calls replace that with a capability the SERVER issues:
 // it picks the token, it picks every object path, and it hands back a
@@ -932,26 +972,96 @@ export function previewBrokeragePolicyMatches(user, { accountType, city, percent
 // endpoint" (404) or "the backend is unreachable". A 503 -- signing
 // configured but broken -- deliberately throws instead: falling back
 // to the unsigned path there would silently reopen the hole at exactly
-// the moment something is already wrong.
+// the moment something is already wrong. A 401 throws for the same
+// reason, and it is the more important of the two: an authentication
+// failure is the one case where falling back to an unsigned, unowned
+// upload would be exactly backwards.
+
+/**
+ * The headers for an authenticated Sell call.
+ *
+ * Throws when no usable ID token can be produced, so a caller can
+ * never accidentally send an anonymous request that the backend then
+ * answers with a 401 the caller has to interpret. `getIdToken()`
+ * refreshes an expired token itself; a failure here means there is
+ * genuinely no session.
+ */
+async function sellAuthHeaders(user) {
+  if (!user) throw new BackendUnavailableError();
+  const idToken = await user.getIdToken();
+  if (!idToken) throw new BackendUnavailableError();
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` };
+}
+
+/**
+ * POST with a bearer token, raising this module's own error types.
+ *
+ * Deliberately separate from authedRequest() above even though the
+ * shapes are close: authedRequest turns an unreachable backend into
+ * BackendUnavailableError, which callers elsewhere treat as "the
+ * feature is not deployed yet". On the Sell upload path that reading
+ * is wrong -- see completeUpload's own comment -- so this keeps the
+ * status code intact for the caller to decide on.
+ */
+async function sellAuthedPost(user, path, body) {
+  const headers = await sellAuthHeaders(user);
+  let response;
+  try {
+    response = await fetch(BACKEND_BASE_URL + path, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    });
+  } catch {
+    throw new BackendUnavailableError();
+  }
+  let data = null;
+  try {
+    data = await response.json();
+  } catch {
+    throw new BackendUnavailableError();
+  }
+  if (!response.ok) {
+    throw new BackendResponseError(response.status, (data && data.error) || 'Request failed.');
+  }
+  return data;
+}
 // parentSessionId chains an OVERFLOW session to the first one, so the
 // server records every object of a submission under a single lineage.
 // Draft cleanup needs that lineage to tell this submission's objects
 // from a stranger's; without it an overflow photo is unprovable and
 // its draft is left for manual review. Passing it requires holding the
 // parent session id, which is a bearer capability only this page has.
-export async function requestUploadSession(kind, count, parentSessionId) {
+export async function requestUploadSession(user, kind, count, parentSessionId) {
   const payload = { kind, count };
   if (parentSessionId) payload.parentSessionId = parentSessionId;
+  // NOTE: the payload deliberately carries no uid. The server takes the
+  // owner from the verified token; anything this page put in the body
+  // would be ignored, and including it would suggest otherwise.
+  let headers;
+  try {
+    headers = await sellAuthHeaders(user);
+  } catch {
+    // No usable ID token. This is not "the feature is off" -- it is
+    // "we cannot prove who this is" -- so it throws rather than
+    // returning null, which would send the caller down the unsigned
+    // fallback path.
+    throw new BackendResponseError(401, 'Please sign in to continue.');
+  }
   let response;
   try {
     response = await fetch(BACKEND_BASE_URL + '/api/v1/sell/upload-session', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(payload)
     });
   } catch {
     return null; // unreachable backend -- fall back, same as today
   }
+  // 404 ONLY. A 401/403 falls through to the throw below: reading an
+  // authentication failure as "this deployment has no session
+  // endpoint" would drop the caller onto the unsigned SDK upload path
+  // at precisely the moment their credentials are the problem.
   if (response.status === 404) return null; // feature not enabled here
   let data = null;
   try {
@@ -974,12 +1084,48 @@ export async function requestUploadSession(kind, count, parentSessionId) {
 // object already exists, which is what makes overwrite impossible
 // rather than merely discouraged.
 export async function putToSignedUrl(upload, blob) {
-  const response = await fetch(upload.url, {
-    method: 'PUT',
-    headers: upload.headers,
-    body: blob
-  });
+  let response;
+  try {
+    response = await fetch(upload.url, {
+      method: 'PUT',
+      headers: upload.headers,
+      body: blob
+    });
+  } catch (cause) {
+    // THE FETCH ITSELF REJECTED -- no response ever arrived.
+    //
+    // This is the failure that cost a long debugging session, because
+    // everything a developer can see about it is misleading. A
+    // cross-origin PUT carrying Content-Type: image/jpeg and
+    // x-goog-if-generation-match is preflighted, and GCS answers HTTP
+    // 200 to EVERY preflight -- matched or not. When the request does
+    // not match a CORS rule the 200 simply carries no access-control-*
+    // headers, the browser blocks the real PUT, and DevTools shows:
+    //
+    //     OPTIONS <signed url>   200        <- looks fine, means nothing
+    //     PUT     <signed url>   (blank)    <- blocked, never sent
+    //
+    // and the page gets a bare "TypeError: Failed to fetch" naming no
+    // cause at all. So this is turned into a typed error that names the
+    // one explanation that fits, rather than leaving the caller to
+    // guess. `scripts/sec2-cors-check.sh` settles it in one command.
+    //
+    // Deliberately NOT retried and NOT fallen back from. There is no
+    // unsigned upload path to fall back to, and adding one is the hole
+    // SEC-2 exists to close.
+    throw new SignedUploadBlocked(cause);
+  }
   if (!response.ok) {
+    // A REAL answer from storage, which means CORS is working -- once
+    // it is configured, GCS includes access-control-allow-origin even
+    // on a 4xx, so the status is readable here rather than being
+    // another blank row.
+    //
+    //   403  the signature did not match: an altered header, an
+    //        expired url, or a clock far out of step
+    //   412  x-goog-if-generation-match: 0 failed -- the object
+    //        already exists. Create-only working as intended; the slot
+    //        was already used
     throw new BackendResponseError(response.status, 'Upload was refused.');
   }
 }
@@ -989,8 +1135,8 @@ export async function putToSignedUrl(upload, blob) {
 // either accept it or delete it. A signed url cannot carry a size cap
 // or prove the bytes are really an image, so nothing downstream may
 // reference an object until this has returned.
-export async function completeUpload(sessionId, path) {
-  return postJson('/api/v1/sell/upload-session/complete', { sessionId, path });
+export async function completeUpload(user, sessionId, path) {
+  return sellAuthedPost(user, '/api/v1/sell/upload-session/complete', { sessionId, path });
 }
 
 // Asks the backend to promote a draft submission to `pending`.
@@ -1009,13 +1155,19 @@ export async function completeUpload(sessionId, path) {
 // order -- the first is the one whose token the submission adopted. It
 // is empty for a listing with no property photos, which sell.html has
 // always permitted.
-export async function finalizeSubmission(submissionId, sessionIds, verificationSessionId) {
+export async function finalizeSubmission(user, submissionId, sessionIds, verificationSessionId) {
   const body = { verificationSessionId, sessionIds: sessionIds || [] };
+  let headers;
+  try {
+    headers = await sellAuthHeaders(user);
+  } catch {
+    throw new BackendResponseError(401, 'Please sign in to submit your listing.');
+  }
   let response;
   try {
     response = await fetch(
       BACKEND_BASE_URL + '/api/v1/sell/submissions/' + encodeURIComponent(submissionId) + '/finalize',
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      { method: 'POST', headers, body: JSON.stringify(body) }
     );
   } catch (err) {
     throw new BackendResponseError(0, 'Could not reach the server.');

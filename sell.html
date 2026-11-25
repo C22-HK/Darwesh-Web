@@ -277,6 +277,125 @@ own initLocationPicker()). -->
       #wizardNav { margin-bottom: 160px !important; }
       #nextBtn, #submitBtn, #backBtn { scroll-margin-bottom: 160px; }
     }
+
+    /* ---- Account gate -------------------------------------------------
+       Deliberately the one dark surface on an otherwise light page. It
+       is not decoration: the gate is a full stop, and reading as a
+       different KIND of surface from the form behind it is what makes
+       that legible at a glance rather than after reading the copy.
+
+       Fixed dark, not theme-reactive. The page it interrupts is light in
+       every theme this site ships, so there is no second ground for this
+       panel to sit on; every colour below is chosen against this one
+       navy and is stated explicitly rather than inherited, so nothing
+       here can be left unreadable by a token defined elsewhere. */
+    .sell-gate {
+      --gate-navy: #14202C;
+      --gate-navy-lift: #1B2B3A;
+      --gate-gold: #C69A4B;
+      --gate-gold-soft: rgba(198, 154, 75, 0.14);
+      --gate-ink: #F4F1EA;
+      --gate-ink-dim: rgba(244, 241, 234, 0.68);
+      border-radius: 20px;
+      padding: 1px;
+      /* The hairline. A 1px gradient border reads as metal at this
+         scale where a flat 1px gold rule reads as a highlighter. */
+      background: linear-gradient(140deg, rgba(198,154,75,0.55), rgba(198,154,75,0.10) 45%, rgba(198,154,75,0.38));
+      box-shadow: 0 18px 44px -24px rgba(20, 32, 44, 0.55);
+    }
+    .sell-gate-inner {
+      border-radius: 19px;
+      background:
+        radial-gradient(120% 100% at 15% 0%, var(--gate-navy-lift) 0%, var(--gate-navy) 58%),
+        var(--gate-navy);
+      padding: 2rem 1.75rem;
+      color: var(--gate-ink);
+    }
+    .sell-gate-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      background: var(--gate-gold-soft);
+      color: var(--gate-gold);
+      margin-bottom: 1.125rem;
+    }
+    .sell-gate-badge .material-symbols-outlined { font-size: 22px; }
+    .sell-gate-title {
+      /* The page's own display face, already loaded -- a second web
+         font request for one heading would cost a round trip and read
+         as a different brand. */
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      font-weight: 700;
+      font-size: clamp(1.5rem, 1.25rem + 1.1vw, 1.9rem);
+      line-height: 1.15;
+      letter-spacing: -0.01em;
+      text-wrap: balance;
+      color: var(--gate-ink);
+      margin: 0 0 0.5rem;
+    }
+    .sell-gate-body {
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: var(--gate-ink-dim);
+      margin: 0 0 1.5rem;
+      /* Wide enough for the two-line description without running past
+         the comfortable reading measure. */
+      max-width: 44ch;
+    }
+    .sell-gate-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+    .sell-gate-btn {
+      font-family: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      flex: 1 1 10rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 1.25rem;
+      border-radius: 10px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+    }
+    .sell-gate-btn:focus-visible { outline: 2px solid var(--gate-gold); outline-offset: 3px; }
+    .sell-gate-btn--primary { background: var(--gate-gold); color: #14202C; }
+    .sell-gate-btn--primary:hover { background: #D8AD5E; }
+    .sell-gate-btn--ghost {
+      border: 1px solid rgba(198,154,75,0.45);
+      color: var(--gate-gold);
+      background: transparent;
+    }
+    .sell-gate-btn--ghost:hover { background: var(--gate-gold-soft); }
+    .sell-gate-spinner {
+      display: inline-block;
+      width: 22px; height: 22px;
+      border-radius: 999px;
+      border: 2px solid rgba(198,154,75,0.18);
+      border-top-color: #C69A4B;
+      animation: sellGateSpin .8s linear infinite;
+    }
+    .sell-gate-resolving-text {
+      font-family: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      margin: 0.875rem 0 0;
+      font-size: 0.8125rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(244, 241, 234, 0.68);
+    }
+    @keyframes sellGateSpin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .sell-gate-spinner { animation-duration: 2.4s; }
+    }
+    @media (max-width: 400px) {
+      .sell-gate-inner { padding: 1.5rem 1.25rem; }
+      .sell-gate-btn { flex-basis: 100%; }
+    }
   </style>
   </head>
 <body class="cine-scope bg-background text-on-surface font-body-md antialiased overflow-x-hidden pt-[76px] pb-24 md:pb-16">
@@ -298,6 +417,53 @@ own initLocationPicker()). -->
 </div>
 </section>
 
+<!-- ====================================================================
+     ACCOUNT GATE
+     ====================================================================
+     Listing a property requires an account. This panel is what a
+     visitor who is not signed in sees instead of the wizard.
+
+     WHY THE WIZARD STARTS HIDDEN AND THIS STARTS HIDDEN TOO
+     Firebase Auth resolves asynchronously: for the first few hundred
+     milliseconds of a page load, `auth.currentUser` is null for a
+     signed-IN visitor just as it is for a guest. Rendering either
+     state as the default would be wrong for half the audience -- show
+     the wizard and a guest watches it vanish; show the gate and a
+     signed-in seller is told to create an account they already have.
+     So BOTH start hidden and a third element, the resolving panel
+     below, holds the space until onAuthStateChanged fires exactly once.
+
+     NONE OF THIS IS A SECURITY CONTROL. Hiding the wizard stops a
+     guest wasting seven steps on a submission that will be refused; it
+     stops nothing else. The controls are firestore.rules (the create
+     rule demands request.auth.uid) and the 401 on the three
+     /api/v1/sell/* endpoints. Both hold with this markup deleted. -->
+<div id="sellAuthResolving" class="max-w-xl mx-auto mb-stack-lg" role="status" aria-live="polite">
+  <div class="sell-gate">
+    <div class="sell-gate-inner text-center">
+      <span class="sell-gate-spinner" aria-hidden="true"></span>
+      <p class="sell-gate-resolving-text" data-i18n="sell.gate.checking">Checking your account…</p>
+    </div>
+  </div>
+</div>
+
+<div id="sellAuthGate" class="hidden max-w-xl mx-auto mb-stack-lg">
+  <div class="sell-gate">
+    <div class="sell-gate-inner">
+      <span class="sell-gate-badge" aria-hidden="true">
+        <span class="material-symbols-outlined">apartment</span>
+      </span>
+      <h2 class="sell-gate-title" data-i18n="sell.gate.title">List your property</h2>
+      <p class="sell-gate-body" data-i18n="sell.gate.body">Create an account or sign in to list and manage your property with Darwesh Group.</p>
+      <div class="sell-gate-actions">
+        <a class="sell-gate-btn sell-gate-btn--primary" id="sellGateSignUp" href="signup.html?next=sell.html" data-i18n="sell.gate.createAccount">Create Account</a>
+        <a class="sell-gate-btn sell-gate-btn--ghost" id="sellGateSignIn" href="login.html?next=sell.html" data-i18n="sell.gate.signIn">Sign In</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="sellWizardRegion" class="hidden">
 <!-- Step Indicator -->
 <div class="max-w-3xl mx-auto mb-stack-md px-2" id="stepIndicator">
 <div class="step-indicator">
@@ -744,6 +910,9 @@ own initLocationPicker()). -->
 </div>
 </div>
 </div>
+
+</div>
+<!-- /sellWizardRegion -->
 
 <!-- Trust badges footer -->
 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 pb-stack-lg text-center">
@@ -1866,7 +2035,7 @@ async function takeUploadSlot() {
     // it. Chaining requires possession of the parent session id, which
     // this page holds and nobody else does.
     const parent = sellUploadSessions.length ? sellUploadSessions[0].sessionId : null;
-    session = await api.requestUploadSession('property-photo', SELL_SESSION_SLOTS, parent);
+    session = await api.requestUploadSession(currentSellerUser(), 'property-photo', SELL_SESSION_SLOTS, parent);
   } catch (err) {
     // A 503 (signing configured but broken) lands here.
     console.error('[sell] upload session unavailable', err);
@@ -1904,28 +2073,111 @@ function sellUploadSessionIds() {
   return sellUploadSessions.map(s => s.sessionId);
 }
 
+/* ==========================================================================
+   UPLOAD DIAGNOSTICS
+   ==========================================================================
+   The signed-upload pipeline has four steps and, until this existed,
+   every one of them failed into the same sentence: "could not be
+   uploaded". That is correct for the seller and useless for anyone
+   trying to fix it -- a CORS block, an expired signature, a spent slot
+   and a rejected image format were indistinguishable.
+
+   WHAT IS DELIBERATELY NOT RECORDED
+
+   No signed URL, and no part of one. The signed URL IS the capability
+   to write a specific customer object; it must never reach a console
+   line, an error report or a screenshot.
+   No object path either -- it carries the server-chosen submission
+   token. The KIND ("property-photo" / "verification-selfie") and the
+   slot index say everything a diagnosis needs and identify nobody.
+   No Firebase ID token, no Authorization header, no image bytes, no
+   file name (a file name can be personal: "passport-ahmed.jpg").
+
+   What IS recorded is the step, the outcome, an error NAME, and a byte
+   count. Read it with __sellUploadDiag() in the console; the result is
+   safe to paste into a bug report as-is.
+   ========================================================================== */
+const sellUploadDiag = [];
+
+function diagStep(kind, step, outcome, extra) {
+  const entry = { t: Math.round(performance.now()), kind, step, outcome, ...(extra || {}) };
+  sellUploadDiag.push(entry);
+  if (sellUploadDiag.length > 60) sellUploadDiag.shift();
+  return entry;
+}
+
+// One actionable sentence per failure mode, chosen by error TYPE rather
+// than by matching on message text.
+function describeUploadFailure(err) {
+  if (!err) return 'unknown';
+  if (err.name === 'SignedUploadBlocked') {
+    return 'blocked before reaching storage -- almost always the bucket CORS config. ' +
+           'A 200 on the OPTIONS preflight does NOT mean CORS is working. ' +
+           'Run scripts/sec2-cors-check.sh.';
+  }
+  if (err instanceof NotAJpeg) return 'the selected image is not a JPEG this browser could convert';
+  if (err.name === 'SecureUploadUnavailable') return 'no upload slot could be issued';
+  if (err.name === 'BackendResponseError') {
+    if (err.status === 403) return 'storage rejected the signature (altered header, or the url expired)';
+    if (err.status === 412) return 'create-only precondition failed -- that object already exists';
+    if (err.status === 401) return 'not signed in, or the session expired';
+    if (err.status === 503) return 'the server could not sign an upload url';
+    return 'storage or the server refused the upload (status ' + err.status + ')';
+  }
+  if (err.message === 'Upload timed out') return 'timed out before storage answered';
+  return err.name || 'unknown';
+}
+
+// A sanitised snapshot, safe to paste into a bug report.
+try {
+  window.__sellUploadDiag = function () {
+    return sellUploadDiag.map(e => ({ ...e }));
+  };
+} catch (_) { /* a page with no window is not a page anyone is debugging */ }
+
 function ensurePhotoUploadStarted(file) {
   if (photoUploadState.has(file)) return;
   const state = { url: null, path: null, error: null, promise: null };
   photoUploadState.set(file, state);
   state.promise = (async () => {
     const t0 = performance.now();
+    const kind = 'property-photo';
     try {
       await getSubmissionAuthReady();
-      const compressed = await compressImage(file);
+      let compressed;
+      try {
+        compressed = await compressImage(file);
+        diagStep(kind, 'compress', 'ok', { bytes: compressed.size });
+      } catch (err) {
+        diagStep(kind, 'compress', 'failed', { why: describeUploadFailure(err) });
+        throw err;
+      }
 
       const slot = await takeUploadSlot();
+      diagStep(kind, 'session', slot ? 'ok' : 'absent');
       if (slot) {
         // SEC-2 path. The url is signed for this exact object, this
         // exact content type, a short expiry and create-only; the
         // headers are part of the signature and must go out verbatim.
         const api = await import('./js/backend-api.js');
-        await withTimeout(api.putToSignedUrl(slot, compressed), PHOTO_UPLOAD_TIMEOUT_MS);
+        try {
+          await withTimeout(api.putToSignedUrl(slot, compressed), PHOTO_UPLOAD_TIMEOUT_MS);
+          diagStep(kind, 'put', 'ok', { bytes: compressed.size });
+        } catch (err) {
+          diagStep(kind, 'put', 'failed', { why: describeUploadFailure(err) });
+          throw err;
+        }
         // Nothing may reference this object until the server has read
         // back what actually landed -- real size, real leading bytes,
         // real generation. A signed url cannot carry a size cap or
         // prove the bytes are an image.
-        await withTimeout(api.completeUpload(slot.sessionId, slot.path), PHOTO_UPLOAD_TIMEOUT_MS);
+        try {
+          await withTimeout(api.completeUpload(currentSellerUser(), slot.sessionId, slot.path), PHOTO_UPLOAD_TIMEOUT_MS);
+          diagStep(kind, 'complete', 'ok');
+        } catch (err) {
+          diagStep(kind, 'complete', 'failed', { why: describeUploadFailure(err) });
+          throw err;
+        }
         // The PATH, not a download url. A download url is a permanent
         // bearer capability that no Storage Rules change can revoke,
         // which is why storing them is what made a leaked url as good
@@ -1947,7 +2199,8 @@ function ensurePhotoUploadStarted(file) {
       console.log('[sell][perf] property photo uploaded in', Math.round(performance.now() - t0) + 'ms:', file.name);
     } catch (err) {
       state.error = err;
-      console.error('[sell] property photo upload failed', file.name, err);
+      // The file NAME is deliberately not logged -- it can be personal.
+      console.error('[sell] property photo upload failed:', describeUploadFailure(err), err);
     }
     renderPhotoPreviews();
   })();
@@ -2209,11 +2462,29 @@ function startVerificationUpload(blob) {
       let session = null;
       try {
         const api = await import('./js/backend-api.js');
-        session = await api.requestUploadSession('verification-selfie', 1);
+        session = await api.requestUploadSession(currentSellerUser(), 'verification-selfie', 1);
+        diagStep('verification-selfie', 'session', session ? 'ok' : 'absent');
         if (session && session.uploads && session.uploads.length) {
           const slot = session.uploads[0];
-          await withTimeout(api.putToSignedUrl(slot, blob), PHOTO_UPLOAD_TIMEOUT_MS);
-          await withTimeout(api.completeUpload(session.sessionId, slot.path), PHOTO_UPLOAD_TIMEOUT_MS);
+          // The selfie blob comes straight from canvas.toBlob(...,
+          // 'image/jpeg'), so unlike a property photo it is always a
+          // real JPEG and never needs compressImage's guarantee. That
+          // is worth knowing when reading a failure here: if a selfie
+          // upload fails, it is NOT the image format.
+          try {
+            await withTimeout(api.putToSignedUrl(slot, blob), PHOTO_UPLOAD_TIMEOUT_MS);
+            diagStep('verification-selfie', 'put', 'ok', { bytes: blob.size });
+          } catch (err) {
+            diagStep('verification-selfie', 'put', 'failed', { why: describeUploadFailure(err) });
+            throw err;
+          }
+          try {
+            await withTimeout(api.completeUpload(currentSellerUser(), session.sessionId, slot.path), PHOTO_UPLOAD_TIMEOUT_MS);
+            diagStep('verification-selfie', 'complete', 'ok');
+          } catch (err) {
+            diagStep('verification-selfie', 'complete', 'failed', { why: describeUploadFailure(err) });
+            throw err;
+          }
           verificationPhotoPath = slot.path;
           // Recorded only after completion succeeded. A session id for
           // an upload the server never accepted would fail
@@ -2517,6 +2788,107 @@ function getSubmissionAuthReady() {
   return submissionAuthPromise;
 }
 
+/* ==========================================================================
+   THE ACCOUNT GATE
+   ==========================================================================
+   Listing a property requires an account. This resolves who is here and
+   shows them either the wizard or the gate panel — once, on the first
+   answer Firebase Auth gives.
+
+   WHAT THIS IS AND IS NOT
+
+   It is a UX gate. It stops a guest spending seven steps on a
+   submission that firestore.rules will refuse and the backend will 401.
+   It is NOT the control: delete every line below, edit the DOM, or run
+   an older cached copy of this page, and the submission is still
+   refused — by the Firestore create rule (which demands
+   request.auth.uid) and by the three /api/v1/sell/* endpoints (which
+   demand a verified ID token). "Never rely on hiding a button" is the
+   standing rule here and this obeys it.
+
+   WHY onAuthStateChanged AND NOT auth.currentUser
+
+   currentUser is null during the first moments of every page load, for
+   a signed-in visitor exactly as for a guest — the SDK has not yet
+   restored the session from IndexedDB. Reading it synchronously would
+   show the gate to people who are already signed in. onAuthStateChanged
+   fires once the answer is real.
+
+   NO REDIRECT LOOP, BY CONSTRUCTION
+
+   This page never redirects. A guest is shown the gate and CHOOSES to
+   leave via a link; signup.html and login.html send them back here with
+   ?next=sell.html. Nothing here navigates on its own, so there is no
+   automatic bounce that could ping-pong with the auth pages' own
+   "already signed in, go away" redirects.
+   ========================================================================== */
+let sellAuthResolved = false;
+
+function showSellWizard() {
+  document.getElementById('sellAuthResolving').classList.add('hidden');
+  document.getElementById('sellAuthGate').classList.add('hidden');
+  document.getElementById('sellWizardRegion').classList.remove('hidden');
+}
+
+function showSellAuthGate() {
+  document.getElementById('sellAuthResolving').classList.add('hidden');
+  document.getElementById('sellWizardRegion').classList.add('hidden');
+  document.getElementById('sellAuthGate').classList.remove('hidden');
+}
+
+(async function resolveSellAccount() {
+  try {
+    await getSubmissionAuthReady();
+  } catch (err) {
+    // Firebase itself would not load. The wizard cannot submit anything
+    // without it, so the gate is the honest state: its two links go to
+    // pages that will report the real problem, whereas a wizard that
+    // cannot submit wastes the visitor's time and then fails at step 7.
+    console.error('[sell] auth bootstrap failed; showing the account gate', err);
+    showSellAuthGate();
+    return;
+  }
+
+  submitFns.onAuthStateChanged(submitAuth, (user) => {
+    // Only the FIRST answer decides which panel is shown. A later
+    // sign-out must not yank a half-completed wizard out from under
+    // someone mid-typing: their draft is in localStorage, the submit
+    // path re-checks the uid at the moment it matters (see
+    // requireSignedInSeller below), and the server refuses regardless.
+    if (sellAuthResolved) return;
+    sellAuthResolved = true;
+    if (user) showSellWizard(); else showSellAuthGate();
+  });
+})();
+
+/**
+ * The signed-in Firebase user, or null.
+ *
+ * Read fresh on every call rather than captured at page load: a
+ * session can expire, or be signed out in another tab, between opening
+ * the wizard and finishing it. The upload-session calls take this
+ * directly so the ID token is minted (and refreshed, by getIdToken)
+ * at the moment of the request rather than at the moment the page
+ * loaded.
+ */
+function currentSellerUser() {
+  return (submitAuth && submitAuth.currentUser) || null;
+}
+
+/**
+ * That user's uid, or null.
+ *
+ * The submission document's `uid` comes from here and from nowhere
+ * else — never from a form field, a query parameter or localStorage.
+ * Returning null makes the caller refuse; it never falls back to
+ * uid: null on the document, which is the value that made every Sell
+ * submission anonymous before this change.
+ */
+function currentSellerUid() {
+  const user = currentSellerUser();
+  return user && user.uid ? user.uid : null;
+}
+
 // Uploads whatever photos are currently selected to
 // sell-submissions/{token}/{n}-{fileName} and returns the download URLs
 // of whichever ones succeeded. One bad/oversized file — or a Storage
@@ -2545,28 +2917,97 @@ function withTimeout(promise, ms) {
   });
 }
 
-// Resizes/re-encodes an image File down to a web-appropriate JPEG Blob.
-// Falls back to the original file untouched if anything about this fails
-// or isn't supported (e.g. an already-small file, or a non-image type
-// that slipped through the accept="image/*" filter) -- compression is a
-// speed optimization, never a reason to lose a photo.
-async function compressImage(file) {
-  if (!file.type.startsWith('image/')) return file;
+// Is this really a JPEG? Read from the BYTES, not from blob.type.
+//
+// blob.type is whatever the operating system guessed from a file
+// extension; it is a claim, and the server does not believe it either.
+// This is deliberately the same test backend/app/sell/limits.py's
+// looks_like() applies to the stored object -- FF D8 FF -- so the
+// client and the server agree on what "a JPEG" means rather than
+// finding out they disagree after the upload has already happened.
+async function isRealJpeg(blob) {
   try {
-    const bitmap = await createImageBitmap(file);
+    const head = new Uint8Array(await blob.slice(0, 3).arrayBuffer());
+    return head.length === 3 && head[0] === 0xFF && head[1] === 0xD8 && head[2] === 0xFF;
+  } catch (err) {
+    // Cannot read the bytes -> cannot claim they are a JPEG.
+    console.error('[sell] could not read image header', err);
+    return false;
+  }
+}
+
+class NotAJpeg extends Error {}
+
+// Produces a web-appropriate JPEG Blob, or throws.
+//
+// WHY THIS MAY NO LONGER FALL BACK TO THE ORIGINAL FILE
+//
+// It used to, in four separate places, on the reasoning that
+// "compression is a speed optimization, never a reason to lose a
+// photo". That reasoning was correct when the upload went through the
+// Firebase SDK, which sent whatever bytes it was given under whatever
+// type they actually were.
+//
+// It is wrong under SEC-2. The server hard-codes every slot's content
+// type to image/jpeg (app/sell/upload_session.py) and SIGNS it into the
+// URL, so the browser has already promised JPEG before it has any bytes
+// to send. Handing back an untouched PNG then produced:
+//
+//   1. a PUT that SUCCEEDS -- storage does not inspect bytes, and the
+//      signature matches because the header still says image/jpeg;
+//   2. a completion check that reads the object back, sees 89 50 4E 47,
+//      correctly refuses it, DELETES it and burns the slot;
+//   3. "Some of your photos could not be uploaded", with nothing in the
+//      browser explaining why.
+//
+// Every one of those steps is behaving correctly. The bug was here: a
+// fallback that quietly broke a promise the signature had already made.
+//
+// So the guarantee is now real -- the returned blob is verified JPEG by
+// its leading bytes, or this throws and the photo is reported as failed
+// immediately, before an upload slot is spent on it.
+async function compressImage(file) {
+  // FAST PATH, and the only one that may skip re-encoding: a file that
+  // is ALREADY a real JPEG, already small enough and already within the
+  // dimension cap. Verified by magic bytes, not by file.type.
+  const alreadyJpeg = await isRealJpeg(file);
+
+  let bitmap = null;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch (err) {
+    // The browser cannot decode this image at all -- an iPhone HEIC in
+    // a browser without HEIC support is the common case. There is no
+    // way to produce JPEG bytes from it here.
+    if (alreadyJpeg) return file;
+    console.error('[sell] image could not be decoded', err);
+    throw new NotAJpeg('this image format could not be read by your browser');
+  }
+
+  try {
     const scale = Math.min(1, PHOTO_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
-    if (scale >= 1 && file.size < 600 * 1024) { bitmap.close(); return file; }
+    if (alreadyJpeg && scale >= 1 && file.size < 600 * 1024) return file;
+
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(bitmap.width * scale);
     canvas.height = Math.round(bitmap.height * scale);
     const ctx = canvas.getContext('2d');
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close();
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', PHOTO_JPEG_QUALITY));
-    return (blob && blob.size < file.size) ? blob : file;
-  } catch (err) {
-    console.error('[sell] image compression failed, uploading original', err);
-    return file;
+
+    // canvas.toBlob CAN resolve null, and a browser that does not
+    // support the requested type silently hands back a PNG instead --
+    // which is exactly the case this whole function exists to stop. So
+    // the result is verified rather than trusted.
+    if (blob && await isRealJpeg(blob)) {
+      // Keeping the smaller of the two is still only safe when the
+      // ORIGINAL is itself a real JPEG.
+      return (alreadyJpeg && file.size < blob.size) ? file : blob;
+    }
+    if (alreadyJpeg) return file;
+    throw new NotAJpeg('this image could not be converted to JPEG');
+  } finally {
+    bitmap.close();
   }
 }
 
@@ -2648,6 +3089,29 @@ document.getElementById('sellForm').addEventListener('submit', async function (e
   }
   console.log('[sell][perf] Firebase SDK ready at +' + Math.round(performance.now() - tSubmitStart) + 'ms');
 
+  // THE ACCOUNT, RE-CHECKED AT THE MOMENT IT MATTERS.
+  //
+  // Not the value captured when the page loaded: a session can expire
+  // or be signed out in another tab while somebody fills in seven
+  // steps. If there is nobody here now, this refuses rather than
+  // falling back to uid: null -- that fallback is exactly what made
+  // every Sell submission anonymous before this change, and
+  // firestore.rules now refuses such a document anyway. Refusing here
+  // turns an opaque PERMISSION_DENIED into a sentence the seller can
+  // act on, with their draft still in localStorage.
+  const sellerUid = currentSellerUid();
+  if (!sellerUid) {
+    errEl.textContent = tr('sell.signInToSubmit',
+      'Please sign in to submit your listing. Your answers are saved on this device.');
+    errEl.classList.remove('hidden');
+    errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    submitBtn.disabled = false;
+    submitBtnLabel.textContent = originalLabel;
+    submissionInFlight = false;
+    showSellAuthGate();
+    return;
+  }
+
   // WHY THE DRAFT PATH WAITS, AND THE LEGACY PATH STILL DOES NOT.
   //
   // The legacy flow deliberately never blocks on Storage: it creates
@@ -2708,7 +3172,13 @@ document.getElementById('sellForm').addEventListener('submit', async function (e
   const typeLabel = type.selectedOptions[0] ? type.selectedOptions[0].textContent : '';
   const dealLabel = draft.listingTypeSelect === 'rent' ? 'for Rent' : 'for Sale';
   const payload = {
-    uid: (submitAuth && submitAuth.currentUser) ? submitAuth.currentUser.uid : null,
+    // The signed-in seller. Never null on this path -- the submit
+    // handler refused above if there was nobody -- and never read from
+    // a form field, a query parameter or localStorage. firestore.rules
+    // compares this against request.auth.uid, so a value from anywhere
+    // else would simply be refused; taking it from the SDK's own
+    // currentUser is what makes the two agree.
+    uid: sellerUid,
     type: 'sell',
     title: `${typeLabel} ${dealLabel}`,
     name: draft.fullNameInput, phone: draft.phoneInput,
@@ -2808,8 +3278,12 @@ document.getElementById('sellForm').addEventListener('submit', async function (e
     const msg = verifyFailed
       ? tr('sell.verify.required',
            'Your identity photo could not be uploaded, so this listing was not submitted. Please retake it and try again.')
-      : tr('sell.photos.failed',
-           'Some of your photos could not be uploaded, so this listing was not submitted. Please try again.');
+      : ([...photoUpload.files].map(f => photoUploadState.get(f))
+            .some(st => st && st.error instanceof NotAJpeg)
+          ? tr('sell.photos.badFormat',
+               'One of your photos is in a format this browser could not convert. Please choose a JPEG or PNG photo and try again.')
+          : tr('sell.photos.failed',
+               'Some of your photos could not be uploaded, so this listing was not submitted. Please try again.'));
     errEl.textContent = msg;
     errEl.classList.remove('hidden');
     errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2855,6 +3329,7 @@ document.getElementById('sellForm').addEventListener('submit', async function (e
       await attachVerificationPhoto(verificationPhotoPath, { strict: true });
       const api = await import('./js/backend-api.js');
       await api.finalizeSubmission(
+        currentSellerUser(),
         newDocRef.id,
         // EVERY session minted this page load, in order -- the first is
         // the one whose token the submission adopted. Empty only when

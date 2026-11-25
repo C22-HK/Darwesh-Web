@@ -168,7 +168,7 @@ violation reporting. -->
         </div>
 
         <p class="font-body-md text-[13px] text-on-surface-variant text-center mt-6">
-          <span data-i18n="auth.alreadyHaveAccount">Already have an account?</span> <a href="login.html" class="text-secondary font-medium hover:underline" data-i18n="auth.logInLink">Log in</a>
+          <span data-i18n="auth.alreadyHaveAccount">Already have an account?</span> <a id="logInLink" href="login.html" class="text-secondary font-medium hover:underline" data-i18n="auth.logInLink">Log in</a>
         </p>
 
         <div class="auth-cta-panel mt-5">
@@ -269,8 +269,20 @@ violation reporting. -->
   import { sendEmailOtp, verifyEmailOtp, completeSignup, checkReferralCode, claimReferral, isEndpointUnavailable, BackendUnavailableError, BackendResponseError, localizeBackendError } from './js/backend-api.js';
   import { normalizeReferralCode } from './js/verification-model.js';
   import { wireOtpInputs, maskEmail } from './js/otp-ui.js';
+  // `?next=` support, for pages that require an account and send guests
+  // here to create one (sell.html). An ALLOWLIST, not a validator --
+  // see js/safe-next.js for why an open redirect is the thing being
+  // prevented and why parsing the value is the wrong defence.
+  import { destinationAfterAuth, nextQuery } from './js/safe-next.js';
 
   function tr(key, fallback) { return (window.t && window.t(key)) || fallback; }
+
+  // Carry the destination onward to login.html, so someone who came
+  // here from sell.html and turns out to already have an account still
+  // lands back on sell.html. Rebuilt from the RESOLVED route, so a
+  // hostile value cannot survive the hop between this site's own pages.
+  const logInLink = document.getElementById('logInLink');
+  if (logInLink) logInLink.setAttribute('href', 'login.html' + nextQuery(window.location.search));
 
   // ---------------------------------------------------------------------
   // Step visibility
@@ -648,7 +660,9 @@ violation reporting. -->
               } catch (_) { /* private mode -- the notice is a nicety, not the flow */ }
             }
           }
-          window.location.href = 'account.html';
+          // Straight to wherever they were headed -- sell.html for
+          // someone who started there -- or account.html as before.
+          window.location.href = destinationAfterAuth(window.location.search, 'account.html');
           return;
         } catch (signInErr) {
           console.error('[signup] custom token sign-in failed', signInErr.code || signInErr.name);
@@ -657,7 +671,11 @@ violation reporting. -->
           // on a spinner.
         }
       }
-      window.location.href = 'login.html';
+      // The account is real but this page could not sign them in.
+      // Hand the destination to login.html rather than dropping it, so
+      // one failed custom-token sign-in does not cost them their place
+      // in the Sell flow.
+      window.location.href = 'login.html' + nextQuery(window.location.search);
     } catch (err) {
       console.error('[signup] signup/complete failed', err.name, err.status || '');
       showStep(otpStepView);
@@ -669,12 +687,25 @@ violation reporting. -->
     }
   }
 
-  // Already signed in? Skip straight to the right dashboard, same as login.html.
+  // Already signed in? Skip straight to the right dashboard -- or to
+  // wherever they were headed -- same as login.html.
   onAuthStateChanged(auth, async (user) => {
     if (!user) return;
-    const snap = await getDoc(doc(db, 'users', user.uid));
-    const role = snap.exists() ? snap.data().role : 'customer';
-    window.location.href = role === 'agent' ? 'agent-dashboard.html' : 'account.html';
+    let role = 'customer';
+    try {
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      role = snap.exists() ? (snap.data().role || 'customer') : 'customer';
+    } catch (e) {
+      // A transient profile read must not strand a signed-in visitor on
+      // the signup form. This used to be unguarded, and a failure here
+      // left the page showing step 1 to someone who already has an
+      // account.
+      console.error('[signup] profile read failed for a signed-in visitor', e && (e.code || e.name));
+    }
+    window.location.href = destinationAfterAuth(
+      window.location.search,
+      role === 'agent' ? 'agent-dashboard.html' : 'account.html'
+    );
   });
 </script>
 <script type="module" src="./js/error-monitor.js"></script>
